@@ -2,11 +2,8 @@ import PetriKit
 import SwiftProductGenerator
 import Parser
 
-public class HeroNetLib {
-    public init() {}
-    public func sum(_ a: Int, _ b: Int) -> Int {
-        return a + b
-    }
+public func setSeed(seed: UInt = 5323) {
+    PetriKit.Random.seed = seed;
 }
 
 public struct PredicateNet<T: Equatable> {
@@ -17,8 +14,11 @@ public struct PredicateNet<T: Equatable> {
   public init(
     places        : Set<PlaceType>,
     transitions   : Set<PredicateTransition<T>>,
-    initialMarking: MarkingType? = nil)
+    initialMarking: MarkingType? = nil,
+    seed          : UInt = 5323)
   {
+      setSeed(seed: seed)
+
       self.places         = places
       self.transitions    = transitions
       self.initialMarking = initialMarking
