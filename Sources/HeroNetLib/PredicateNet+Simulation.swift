@@ -1,7 +1,14 @@
 public struct PredicateNetSimulation<T: Equatable>: Sequence {
+  public init(
+    net           : PredicateNet<T>,
+    initialMarking: PredicateNet<T>.MarkingType?)
+  {
+      self.net = net
+      self.initialMarking = initialMarking
+  }
 
   public func makeIterator() -> AnyIterator<PredicateNet<T>.MarkingType> {
-    var m = self.net.initialMarking
+    var m = self.initialMarking
 
     return AnyIterator {
       if let n = m {
@@ -14,13 +21,12 @@ public struct PredicateNetSimulation<T: Equatable>: Sequence {
   }
 
   let net           : PredicateNet<T>
-  let initialMarking: PredicateNet<T>.MarkingType
-
+  let initialMarking: PredicateNet<T>.MarkingType?
 }
 
 extension PredicateNet {
 
-  public func simulation(from marking: MarkingType)
+  public func simulation(from marking: MarkingType?)
     -> PredicateNetSimulation<T>
   {
     return PredicateNetSimulation(net: self, initialMarking: marking)
