@@ -1,6 +1,7 @@
 import PetriKit
-import SwiftProductGenerator
+import Interpreter
 import Parser
+import SwiftProductGenerator
 
 public func setSeed(seed: UInt = 5323) {
   PetriKit.Random.seed = seed;
@@ -79,8 +80,12 @@ public class PredicateTransition<T: Equatable> {
   public init(
     preconditions: Set<PredicateArc<T>> = [],
     postconditions: Set<PredicateArc<T>> = [],
-    conditions: [(Binding) -> Bool] = []
+    conditions: [(Binding) -> Bool] = [],
+    module: String
   ) {
+    self.interpreter = Interpreter()
+    try! interpreter.loadModule(fromString:module)
+
     var inboundPlaces: Set<PredicateNet<T>.PlaceType> = []
     var inboundVariables: Set<Variable> = []
 
@@ -98,7 +103,12 @@ public class PredicateTransition<T: Equatable> {
         case .variable(let v):
           inboundVariables.insert(v)
         case .function(_):
-          preconditionFailure("Preconditions should be labeled with variables only.")
+          break
+        case .expr(let f, let v):
+          break
+        case .apply(let f, let v):
+          break
+          /* preconditionFailure("Preconditions should be labeled with variables only.") */
         }
       }
     }
@@ -108,14 +118,19 @@ public class PredicateTransition<T: Equatable> {
       for item in arc.label {
         switch item {
         case .variable(let v):
-          guard inboundVariables.contains(v) else {
-            preconditionFailure(
-              "Postconditions shouldn't be labeled with free variables."
-            )
-          }
+          break
+          /* guard inboundVariables.contains(v) else { */
+          /*   preconditionFailure( */
+          /*     "Postconditions shouldn't be labeled with free variables." */
+          /*   ) */
+          /* } */
         case .function(_):
           // Note that we can't make sure the functions don't use free variable, and
           // that transition firing may fail at runtime if they do.
+          break
+        case .expr(let f, let v):
+          break
+        case .apply(let f, let v):
           break
         }
       }
@@ -190,10 +205,17 @@ public class PredicateTransition<T: Equatable> {
             }
           } else {
             // If the variable wasn't bound yet, simply use the current token.
+
+            /* print(remainingTokens[0]) */
+            /* print(try! self.interpreter.eval(string:"\(remainingTokens[0])")) */
+            /* let evalValue = try! self.interpreter.eval(string:"\(remainingTokens[0])") */
+
             binding[variable] = remainingTokens.remove(at:0)
           }
         }
       }
+
+      print(binding)
 
       // Add the binding to the return list, unless we already found the same in a previous
       // iteration.
@@ -258,12 +280,18 @@ public class PredicateTransition<T: Equatable> {
           result[arc.place]!.append(binding[v]!)
         case .function(let f):
           result[arc.place]!.append(f(binding))
+        case .expr(let f, let v):
+          break
+        case .apply(let f, let v):
+          break
         }
       }
     }
 
     return result
   }
+
+  public var interpreter: Interpreter
 
   /// The preconditions of the transition.
   public let preconditions: Set<PredicateArc<T>>
@@ -346,5 +374,6 @@ public  enum PredicateLabel <T: Equatable> {
 
   case variable(Variable)
   case function((PredicateTransition<T>.Binding) -> T)
-
+  case expr(String, UInt)
+  case apply(String, [String])
 }

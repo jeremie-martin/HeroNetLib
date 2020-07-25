@@ -1,0 +1,9 @@
+type Boolean :: #True or #False
+
+func not(_ bool: Boolean) -> Boolean ::
+// Not of a boolean
+  match(bool)
+    with #True ::
+      #False
+    with #False ::
+      #True
