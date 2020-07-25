@@ -3,25 +3,25 @@ import SwiftProductGenerator
 import Parser
 
 public func setSeed(seed: UInt = 5323) {
-    PetriKit.Random.seed = seed;
+  PetriKit.Random.seed = seed;
 }
 
 public struct PredicateNet<T: Equatable> {
 
-  public typealias PlaceType   = String
+  public typealias PlaceType = String
   public typealias MarkingType = [PlaceType: [T]]
 
   public init(
-    places        : Set<PlaceType>,
-    transitions   : Set<PredicateTransition<T>>,
+    places: Set<PlaceType>,
+    transitions: Set<PredicateTransition<T>>,
     initialMarking: MarkingType? = nil,
-    seed          : UInt = 5323)
-  {
-      setSeed(seed: seed)
+    seed: UInt = 5323
+  ) {
+    setSeed(seed:seed)
 
-      self.places         = places
-      self.transitions    = transitions
-      self.initialMarking = initialMarking
+    self.places = places
+    self.transitions = transitions
+    self.initialMarking = initialMarking
   }
 
   /// Returns a marking reachable after up to `steps` transition firings.
@@ -38,7 +38,7 @@ public struct PredicateNet<T: Equatable> {
       var fireable: [PredicateTransition<T>: [PredicateTransition<T>.Binding]] = [:]
       for transition in self.transitions {
         // Notice how we ignore non-fireable transitions.
-        let bindings = transition.fireableBingings(from: m)
+        let bindings = transition.fireableBingings(from:m)
         if bindings.count > 0 {
           fireable[transition] = bindings
         }
@@ -48,9 +48,9 @@ public struct PredicateNet<T: Equatable> {
       guard !fireable.isEmpty else { return m }
 
       // Choose one transition at random and fire it to produce the next marking.
-      let (t, bindings) = PetriKit.Random.choose(from: fireable)
-      let binding       = PetriKit.Random.choose(from: bindings)
-      m = t.fire(from: m, with: binding)!
+      let (t, bindings) = PetriKit.Random.choose(from:fireable)
+      let binding = PetriKit.Random.choose(from:bindings)
+      m = t.fire(from:m, with:binding)!
     }
 
     return m
@@ -77,11 +77,11 @@ public class PredicateTransition<T: Equatable> {
   public typealias Binding = [Variable: T]
 
   public init(
-    preconditions : Set<PredicateArc<T>> = [],
+    preconditions: Set<PredicateArc<T>> = [],
     postconditions: Set<PredicateArc<T>> = [],
-    conditions    : [(Binding) -> Bool]  = [])
-  {
-    var inboundPlaces   : Set<PredicateNet<T>.PlaceType> = []
+    conditions: [(Binding) -> Bool] = []
+  ) {
+    var inboundPlaces: Set<PredicateNet<T>.PlaceType> = []
     var inboundVariables: Set<Variable> = []
 
     for arc in preconditions {
@@ -110,7 +110,8 @@ public class PredicateTransition<T: Equatable> {
         case .variable(let v):
           guard inboundVariables.contains(v) else {
             preconditionFailure(
-              "Postconditions shouldn't be labeled with free variables.")
+              "Postconditions shouldn't be labeled with free variables."
+            )
           }
         case .function(_):
           // Note that we can't make sure the functions don't use free variable, and
@@ -120,9 +121,9 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    self.preconditions  = preconditions
+    self.preconditions = preconditions
     self.postconditions = postconditions
-    self.conditions     = conditions
+    self.conditions = conditions
   }
 
   /// Compute all possible bindings that make the transition fireable from the given marking.
@@ -161,11 +162,11 @@ public class PredicateTransition<T: Equatable> {
   ///   of `p1`, we'll reject the binding and move to the next arrangement.
   public func fireableBingings(from marking: PredicateNet<T>.MarkingType) -> [Binding] {
     // Sort the places so we always bind their variables in the same order.
-    let variables    = self.inboundVariables()
+    let variables = self.inboundVariables()
     let sortedPlaces = variables.keys.sorted()
 
     // Compute all permutations of place tokens.
-    let choices = sortedPlaces.map { permutations(of: marking[$0]!) }
+    let choices = sortedPlaces.map { permutations(of:marking[$0]!) }
 
     // Iterate through the cartesian product of all permutations ...
     var results: [Binding] = []
@@ -175,37 +176,37 @@ public class PredicateTransition<T: Equatable> {
       // Iterate through each arrangement of each place.
       for (place, availableTokens) in zip(sortedPlaces, choice) {
         // Make sure there's enough variables to bind.
-        guard variables[place]!.count <= availableTokens.count else {
-          continue outer
-        }
+        guard variables[place]!.count <= availableTokens.count else { continue outer }
 
         // Try to find a binding for each variable on the precondition label.
         var remainingTokens = availableTokens
         for variable in variables[place]! {
           if let value = binding[variable] {
             // If the variable was already bound, try to match it with another token.
-            if let index = remainingTokens.index(of: value) {
-              remainingTokens.remove(at: index)
+            if let index = remainingTokens.index(of:value) {
+              remainingTokens.remove(at:index)
             } else {
               continue outer
             }
           } else {
             // If the variable wasn't bound yet, simply use the current token.
-            binding[variable] = remainingTokens.remove(at: 0)
+            binding[variable] = remainingTokens.remove(at:0)
           }
         }
       }
 
       // Add the binding to the return list, unless we already found the same in a previous
       // iteration.
-      if !results.contains(where: { $0 == binding }) {
+      if !results.contains(where:{ $0 == binding }) {
         results.append(binding)
       }
     }
 
     // Filter out the bindings for which the transition's guards don't hold.
     for condition in self.conditions {
-      results = results.filter { binding in condition(binding) }
+      results = results.filter { binding in
+        condition(binding)
+      }
     }
 
     return results
@@ -215,17 +216,18 @@ public class PredicateTransition<T: Equatable> {
   ///
   /// - Note: If the transition isn't fireable with the provided marking and binding, the method
   ///   will return a nil value.
-  public func fire(from marking: PredicateNet<T>.MarkingType, with binding: Binding)
-    -> PredicateNet<T>.MarkingType?
-  {
+  public func fire(
+    from marking: PredicateNet<T>.MarkingType,
+    with binding: Binding
+  ) -> PredicateNet<T>.MarkingType? {
     // Check whether the provided binding is valid.
     let variables = self.inboundVariables()
     for (place, requiredVariables) in variables {
       var remainingTokens = marking[place]!
       for variable in requiredVariables {
-        guard let value = binding[variable]                else { return nil }
-        guard let index = remainingTokens.index(of: value) else { return nil }
-        remainingTokens.remove(at: index)
+        guard let value = binding[variable] else { return nil }
+        guard let index = remainingTokens.index(of:value) else { return nil }
+        remainingTokens.remove(at:index)
       }
     }
 
@@ -241,8 +243,8 @@ public class PredicateTransition<T: Equatable> {
       for variable in variables[arc.place]! {
         // Note that we can assume this search to be successful, because we know the
         // transition is fireable.
-        let index = result[arc.place]!.index(of: binding[variable]!)!
-        result[arc.place]!.remove(at: index)
+        let index = result[arc.place]!.index(of:binding[variable]!)!
+        result[arc.place]!.remove(at:index)
       }
     }
 
@@ -264,7 +266,7 @@ public class PredicateTransition<T: Equatable> {
   }
 
   /// The preconditions of the transition.
-  public let preconditions : Set<PredicateArc<T>>
+  public let preconditions: Set<PredicateArc<T>>
 
   /// The postconditions of the transition.
   public let postconditions: Set<PredicateArc<T>>
@@ -309,11 +311,11 @@ extension PredicateTransition: Hashable {
   // reference equality to make `PredicateTransition` conforms to `Hashable`. That's why we
   // declared it as a `class` rather than a `struct`.
 
-  public var hashValue: Int {
+  public var hashValue: Int{
     return self.preconditions.hashValue ^ self.postconditions.hashValue
   }
 
-  public static func ==(lhs: PredicateTransition, rhs: PredicateTransition) -> Bool {
+  public static func == (lhs: PredicateTransition, rhs: PredicateTransition) -> Bool {
     return lhs === rhs
   }
 
@@ -330,17 +332,17 @@ public class PredicateArc<T: Equatable>: Hashable {
   public let place: PredicateNet<T>.PlaceType
   public let label: [PredicateLabel<T>]
 
-  public var hashValue: Int {
+  public var hashValue: Int{
     return self.place.hashValue
   }
 
-  public static func ==(lhs: PredicateArc, rhs: PredicateArc) -> Bool {
+  public static func == (lhs: PredicateArc, rhs: PredicateArc) -> Bool {
     return lhs === rhs
   }
 
 }
 
-public enum PredicateLabel<T: Equatable> {
+public  enum PredicateLabel <T: Equatable> {
 
   case variable(Variable)
   case function((PredicateTransition<T>.Binding) -> T)

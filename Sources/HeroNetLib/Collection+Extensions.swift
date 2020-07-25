@@ -19,7 +19,7 @@ extension Collection {
 ///     // Prints "[[0, 1, 2, 3], [1, 0, 2, 3], [1, 2, 0, 3], [1, 2, 3, 0]]"
 public func between<T>(x: T, _ ys: [T]) -> [[T]] {
   guard let (head, tail) = ys.decompose() else { return [[x]] }
-  return [[x] + ys] + between(x: x, Array(tail)).map { [head] + $0 }
+  return [[x] + ys] + between(x:x, Array(tail)).map { [head] + $0 }
 }
 
 /// Returns all possible permutations of the given sequence.
@@ -32,5 +32,7 @@ public func between<T>(x: T, _ ys: [T]) -> [[T]] {
 public func permutations<S: Sequence>(of sequence: S) -> [[S.Iterator.Element]] {
   let xs = Array(sequence)
   guard let (head, tail) = xs.decompose() else { return [[]] }
-  return permutations(of: tail).flatMap({ between(x: head, $0) })
+  return permutations(of:tail).flatMap({
+    between(x:head, $0)
+  })
 }
