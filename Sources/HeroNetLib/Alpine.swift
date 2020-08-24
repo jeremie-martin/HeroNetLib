@@ -1,21 +1,39 @@
 import Interpreter
 import Parser
+import Foundation
+
+public struct TransitionJSON: Decodable {
+  let pre: [String: [String]]
+  let post: [String: [String]]
+}
+
+public struct HeroJSON: Decodable {
+  let transition: [TransitionJSON]
+  let marking: [String: [String]]
+}
 
 public struct AlpineNet {
 
-  public typealias Term = String
+  public typealias Term = Value
 
-  public init() {
-    /* let tokens = Array(try! Lexer(source:code)) */
-    /* tokens */
-    /*   .filter({ */
-    /*     $0.kind != TokenKind.newline */
-    /*   }) */
-    /*   .map({ */
-    /*     $0.kind */
-    /*   }) */
+  public init(module: String, json: String? = nil) {
+    self.interpreter = Interpreter()
+    try! self.interpreter.loadModule(fromString:module)
     self.places = []
     self.transitions = []
+
+    if let jsonData = json?.data(using:.utf8)! {
+      let heroParse: HeroJSON = try! JSONDecoder().decode(HeroJSON.self, from:jsonData)
+
+      heroParse.transition.forEach { self.addTransition(pre:$0.pre, post:$0.post) }
+      heroParse.marking.forEach {
+        var values: [Value] = []
+        $0.value.forEach { values.append(try! interpreter.eval(string:$0)) }
+        self.initialMarking[$0.key] = values
+      }
+      /* self.initialMarking = heroParse.marking */
+    }
+    /* let lispCompiler = SExpression(input:source) */
   }
 
   /*
@@ -23,35 +41,44 @@ public struct AlpineNet {
     Output: [PredicateArc(place:"p1", label:[.variable("x"), .variable("y")],
              PredicateArc(place:"p2", label:[.variable("f")]]
   */
-  public mutating func addTransition(pre: [Term: [Term]], post: [String: [String]], source: String) {
-    let module = try! String(contentsOfFile:source, encoding:.utf8)
-
+  public mutating func addTransition(pre: [String: [String]], post: [String: [String]]) {
     self.places = Set(pre.keys)
       .union(Set(post.keys))
       .union(self.places)
 
+    let inbound = pre.map {
+      PredicateArc<Value>(place:$0.key, label:$0.value.map { .variable($0) }, sexpr:nil)
+    }
+
+    let outbound = post.map {
+      PredicateArc<Value>(place:$0.key, label:$0.value.map { .variable($0) }, sexpr:nil)
+    }
+
     self.transitions.insert(PredicateTransition(
-      preconditions:Set(
-        pre.map { PredicateArc<Term>(place:$0.key, label:$0.value.map { .variable($0) }) }
-      ), postconditions:Set(
-        post.map { PredicateArc<Term>(place:$0.key, label:$0.value.map { .variable($0) }) }
-      ), module:module
+      preconditions:Set(inbound), postconditions:Set(outbound)
     ))
   }
 
-  public func createNet(initialMarking: PredicateNet<Term>.MarkingType) {
-    let net = PredicateNet<Term>(places:self.places, transitions:self.transitions)
+  public func createNet(fromMarking: PredicateNet<Term>.MarkingType? = nil) {
+    let net = PredicateNet<Term>(
+      places:self.places, transitions:self.transitions, interpreter:self.interpreter
+    )
 
-    print("Start")
-    for m in net.simulation(from:initialMarking).prefix(1) {
-      print("fjdgjfdjkdhghk")/* print(m) */
+    print("Initial marking")
+    initialMarking.forEach { print("  - \($0.key): \($0.value)") }
+    print("")
+    for m in net.simulation(from:initialMarking).prefix(4) {
+      print("New marking")
+      m.forEach { print("  - \($0.key): \($0.value)") }
+      print("")
     }
-    print("End")
   }
 
-  public var places: Set<String>
-  public var transitions: Set<PredicateTransition<Term>>
+  var interpreter: Interpreter
+  var places: Set<String>
+  var transitions: Set<PredicateTransition<Term>>
 
+  var initialMarking: PredicateNet<Term>.MarkingType = [:]
   /* let net: PredicateNet<T>
    * let initialMarking: PredicateNet<T>.MarkingType? */
 }

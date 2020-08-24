@@ -10,7 +10,7 @@ public struct PredicateNetSimulation<T: Equatable>: Sequence {
     return AnyIterator {
       if let n = m {
         m = self.net.simulate(steps:1, from:n)
-        return n
+        return m
       } else {
         return nil
       }
