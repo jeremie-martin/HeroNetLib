@@ -2,6 +2,7 @@ import PetriKit
 import SwiftProductGenerator
 import Interpreter
 import Foundation
+import DDKit
 
 public func setSeed(seed: UInt = 5323) {
   PetriKit.Random.seed = UInt(time(nil));
@@ -32,8 +33,16 @@ public struct PredicateNet<T: Equatable> {
   /// At each step, one fireable transition is chosen at random and fired to produce a new
   /// marking. If the Predicate Net reaches a deadlock, the remaining steps are ignored and the
   /// state that was reached is returned.
-  public func simulate(steps: Int, from marking: MarkingType) -> MarkingType {
+  public func simulate(steps: Int, from marking: MarkingType) -> (
+    MarkingType,
+    [PredicateTransition<T>.Binding],
+    [[String: Value]]
+  ) {
     var m = marking
+    var bindingChosen: [PredicateTransition<T>.Binding] = []
+    var newTokens: [[String: Value]] = []
+
+    let start = DispatchTime.now()
 
     // For as many steps are we were instructed to simulate ...
     for _ in 0 ..< steps {
@@ -48,15 +57,22 @@ public struct PredicateNet<T: Equatable> {
       }
 
       // If we reached a deadlock, ignore the remaining transition and return.
-      guard !fireable.isEmpty else { return m }
+      guard !fireable.isEmpty else { return (m, bindingChosen, newTokens) }
 
       // Choose one transition at random and fire it to produce the next marking.
       let (t, bindings) = PetriKit.Random.choose(from:fireable)
       let binding = PetriKit.Random.choose(from:bindings)
-      m = t.fire(from:m, with:binding, interpreter:interpreter)!
+      bindingChosen.append(binding)
+      var new: [String: Value] = [:]
+      (m, new) = t.fire(from:m, with:binding, interpreter:interpreter)!
+      newTokens.append(new)
     }
 
-    return m
+    /* let end = DispatchTime.now()   // <<<<<<<<<<   end time */
+    /* let timeInterval = Double(end.uptimeNanoseconds - start.uptimeNanoseconds)  / 1_000_000_000 // Technically could overflow for long running tests */
+    /* print("Time to evaluate problem: \(timeInterval) seconds") */
+
+    return (m, bindingChosen, newTokens)
   }
 
   public let interpreter: Interpreter
@@ -84,8 +100,9 @@ public class PredicateTransition<T: Equatable> {
   public init(
     preconditions: Set<PredicateArc<T>> = [],
     postconditions: Set<PredicateArc<T>> = [],
-    conditions: [(Binding) -> Bool] = []
+    conditions: [(CondTerm, CondTerm)] = []
   ) {
+
     var inboundPlaces: Set<PredicateNet<T>.PlaceType> = []
     var inboundVariables: Set<Variable> = []
 
@@ -213,10 +230,436 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
+    let toValue = { (e: CondTerm, binding: Binding) -> Value in
+      switch e {
+      case .value(let v):
+        return v
+      case .str(let s):
+        return try! interpreter.eval(string:s, replace:binding as! Dictionary<String, Value>)
+      }
+    }
+
+    /* let factory = MFDDFactory<String, Value>() */
+    /* var morphisms: MFDDMorphismFactory<String, Value>{ */
+    /*   factory.morphisms */
+    /* } */
+
+    /* def powerset(lst): */
+    /*     """Pseudo-code for generating the power set of lst.""" */
+    /*     if empty_list: */
+    /*         return "List containing the empty list" */
+    /*     else: */
+    /*         recursive_result = powerset("Rest of lst") */
+    /*         new_elements = "Add first of lst to every elem in recursive_result" */
+    /*         return "Combine the elements in recursive_result and new_elements" */
+
+    /* var a: MFDD<String, Value> */
+    /* var b: MFDD<String, Value> */
+    /* a = factory.one */
+    /* b = factory.encode(family:(results as! [[String: Value]])) */
+    /* print("createdCount", factory.createdCount) */
+    /* let zero = try! interpreter.eval(string:"1") */
+    /* let morphism = morphisms.intersection(morphisms.identity, morphisms.constant(b)) */
+    /* [> print(a) <] */
+    /* [> print(b) <] */
+    /* [> print(morphism.apply(on:factory.encode(family:factory.one))) <] */
+    /* [> print("createdCount", factory.createdCount) <] */
+    /* [> print(a.intersection(b)) <] */
+    /* print(b.count) */
+    /* print(results.count) */
+    /* let morph = factory.morphisms.insert(assignments:["issou": zero]) */
+    /* var x = morph.apply(on:b) */
+    /* var y: [[String: Value]] = x.map { $0 } */
+    /* print("createdCount", factory.createdCount) */
+    /* print() */
+
+    /* func perm(_ list: [Int]) -> [[Int]] { */
+    /*   if list.count == 1 { */
+    /*     return [s] */
+    /*   } */
+    /*   var results: [[Int]] = [] */
+    /*   for (i, v) in list.enumerated() { */
+    /*     results.append( */
+    /*   } */
+    /*   return 1 */
+    /* } */
+
+    /* def perms(s):         */
+    /* if(len(s)==1): return [s] */
+    /* result=[] */
+    /* for i,v in enumerate(s): */
+    /*     result += [v+p for p in perms(s[:i]+s[i+1:])] */
+    /* return result */
+
+    let factory = MFDDFactory<String, Int>(bucketCapacity:1024*1024)
+    var morphisms: MFDDMorphismFactory<String, Int>{
+      factory.morphisms
+    }
+
+    typealias ADD = MFDD<String, Int>
+    func permutationsWithoutRepetitionFrom<T>(_ elements: [T], taking: Int) -> [[T]] {
+      guard elements.count >= taking else { return [] }
+      guard elements.count >= taking && taking > 0 else { return [[]] }
+
+      if taking == 1 {
+        return elements.map { [$0] }
+      }
+
+      var permutations = [[T]]()
+      /* var pdd = factory.encode(family:[[]]) */
+      for (index, element) in elements.enumerated() {
+        var reducedElements = elements
+        reducedElements.remove(at:index)
+        let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1)
+        let uwu = owo.map { [element] + $0 }
+        /* print(taking, owo, permutations) */
+        /* print() */
+        permutations += uwu
+      }
+
+      return permutations
+    }
+
+    /* func permDD(_ elements: [T], taking: Int) -> ADD { */
+    /*   guard elements.count >= taking else { return factory.zero } */
+    /*   guard elements.count >= taking && taking > 0 else { return factory.zero } */
+    /*  */
+    /*   if taking == 1 { */
+    /*  */
+    /*     return elements.map { [$0] } */
+    /*   } */
+    /*  */
+    /*   var permutations = [[T]]() */
+    /*   var pdd = factory.encode(family:[[]]) */
+    /*   for (index, element) in elements.enumerated() { */
+    /*     var reducedElements = elements */
+    /*     reducedElements.remove(at:index) */
+    /*     let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1) */
+    /*     let uwu = owo.map { [element] + $0 } */
+    /*     print(taking, owo, permutations) */
+    /*     print() */
+    /*     permutations += uwu */
+    /*   } */
+    /*  */
+    /*   return permutations */
+    /* } */
+    func combine<T>(lists: [[T]], partial: [T] = []) -> [[T]] {
+      // print("combine(lists: \(lists), partial: \(partial))")
+      if lists.isEmpty {
+        // recursive base case: lists is now empty, so partial
+        // is complete, so return it in an enclosing array
+        // print("... returning \([partial])")
+        return [partial]
+      } else {
+        // make lists mutable so that we can remove the first sub-array
+        var lists = lists
+
+        // remove the first sub-array from lists which is now shorter
+        let first = lists.removeFirst()
+
+        // create an array to hold all of the combinations
+        var result = [[T]]()
+
+        // take each element from the first sub-array, append it to
+        // the partial result, and call combine to continue the
+        // process.  Take the results returned from combine and append
+        // those to the result array.
+        for n in first {
+          result += combine(lists:lists, partial:partial + [n])
+        }
+
+        // Return the results
+        // print("... returning \(result)")
+        return result
+      }
+    }
+
+    func prod(domains: [[String]: [Int]]) -> ADD {
+      /* let a = domains.map { (keys, values) in values. } */
+      var SW = Stopwatch()
+      /* SW.reset() */
+      var dd = domains.flatMap { keys, values in
+        keys.map { key in
+          factory.encode(
+            family:values.map { val in
+              [key: val]
+            }
+          )
+        }
+      }
+      /* print("first", SW.elapsed.humanFormat) */
+      /*  */
+      /* SW.reset() */
+      var perms = dd.last!
+      for DD in dd[0...dd.count-2].reversed() {
+        func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+          let take = pointer.pointee.take.mapValues { _ in
+            return morphisms.constant(perms).apply(on:)
+          }
+          /*   } */
+          /* ) */
+          let res = ADD.Inductive.Result(take:take, skip:morphisms.identity.apply(on:))
+          return res
+        }
+        perms = morphisms.inductive(function:test).apply(on:DD)
+        /* print(perms) */
+        /* print(perms.count) */
+      }
+      /* print("second", SW.elapsed.humanFormat) */
+      /* print("aaa") */
+      /*  */
+      /* SW.reset() */
+      let SSSMAP = Dictionary(
+        uniqueKeysWithValues:SSS.map { key in
+          (key, SSS.filter { $0 > key })
+        }
+      )
+
+      func del(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+        /* let tmp = pointer.pointee.take.keys.map { val in */
+        /*   fil.flatMap { key in */
+        /*     (key, [val]) as! (String, [Int]) */
+        /*   } */
+        /* } */
+        let t = Dictionary(
+          uniqueKeysWithValues:pointer.pointee.take.map { (val, point) in
+            (
+              val, morphisms.composition(
+                of:this, with:morphisms.filter(
+                  excluding:SSSMAP[pointer.pointee.key]!.flatMap { key in
+                    (key, [val, 554]) as! (String, [Int])
+                  }
+                )
+              ).apply(on:)
+            )
+          }
+        )
+        /* let t = { val, _ in } */
+        /* let tt = t.map { } */
+        /* let t = tmp.flatMap { zzz in */
+        /*   pointer.pointee.take.mapValues { _ in morphisms.remove(valuesForKeys:zzz).apply(on:) } */
+        /* } */
+        let iii = ADD.Inductive.Result(
+          /* take:[1: morphisms.identity.apply(on:)], skip:morphisms.identity.apply(on:) */
+          take:t, skip:morphisms.constant(factory.zero).apply(on:)
+        )
+        return iii
+        /* let phi = morphisms.composition(of:this, with:) */
+        /* pointer.pointee.take.mapValues { _ in */
+        /*             morphisms.identity.apply(on:) */
+        /* let res = ADD.Inductive.Result( */
+        /*   [> take:t, skip:morphisms.identity.apply(on:) <] */
+        /*   take:[1: morphisms.identity.apply(on:)], skip:morphisms.identity.apply(on:) */
+        /* ) */
+        /* return res */
+      }
+      var bbb = morphisms.inductive(function:del).apply(on:perms)
+      /* bbb.pointer.pointee = morphisms */
+      /*   .inductive(substitutingOneWith:factory.zero, function:del) */
+      /*   .apply(on:bbb.pointer.pointee.take) */
+      /* print("third", SW.elapsed.humanFormat) */
+      /* print(bbb) */
+      /* print(bbb.count) */
+      return bbb
+
+      func delsmall(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+        /* if (pointer.pointee.take.count < 1) { */
+        /* return ADD.Inductive.Result( */
+        /*   take:pointer.pointee.take.mapValues { _ in */
+        /*     morphisms.identity.apply(on:) */
+        /*   }, skip:morphisms.constant(factory.zero).apply(on:) */
+        /* ) */
+        /* } */
+
+        let t = pointer.pointee.take.mapValues { _ in
+          morphisms.composition(of:this, with:morphisms.identity).apply(on:)
+        }
+        return ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:))
+      }
+      /* factory.printM(bbb.pointer) */
+
+      return bbb
+      /* bbb = morphisms */
+      /*   .fixedPoint(of:morphisms.inductive(substitutingOneWith:factory.zero, function:delsmall)) */
+      /*   .apply(on:bbb) */
+      /* factory.printM(bbb.pointer) */
+      /* [> bbb = morphisms.inductive(function:del).apply(on:bbb) <] */
+      /* [> let bbb = morphisms.remove(valuesForKeys:[("y", [2])]).apply(on:perms) <] */
+      /* print("-------------") */
+      /* print(bbb) */
+      /* print(bbb.count) */
+      /* print("-------------") */
+
+      /* let same = domains.flatMap { keys, values in */
+      /*   values.map { value in */
+      /*     keys.flatMap { key in */
+      /*       [key: value] */
+      /*     } */
+      /*   } */
+      /* } */
+
+      /* let s = domains.first!.value */
+      /* var index: [Int] = [Int](repeating:0, count:s.count) */
+      /* func permutate(depth: Int) { */
+      /*   if depth == s.count { */
+      /*     print("lol") */
+      /*     for i in 0 ... s.count { */
+      /*       print(i) */
+      /*       print(index) */
+      /*       [> print(s[index[i]], terminator:" ") <] */
+      /*     } */
+      /*     print() */
+      /*     return */
+      /*     [> [> for (std::size_t i = 0; i < s.size(); ++i) <] <] */
+      /*     [> [> { <] <] */
+      /*     [> [>     std::cout << s[index[i]]; <] <] */
+      /*     [> [> } <] <] */
+      /*     [> [> std::cout << "\n"; <] <] */
+      /*     [> [> return; <] <] */
+      /*   } */
+      /*  */
+      /*   for i in 0 ... s.count { */
+      /*     index[depth] = i */
+      /*     permutate(depth:depth+1) */
+      /*   } */
+      /* } */
+      /* let pt = permutate(depth:0) */
+
+      /* var test = domains.flatMap { keys, values in */
+      /*   keys.map { key in */
+      /*     factory.encode( */
+      /*       family:values.map { val in */
+      /*         [key: val] */
+      /*       } */
+      /*     ) */
+      /*   } */
+      /* } */
+      /*  */
+      /* let sameDD = factory.encode(family:same) */
+      /* print("***") */
+      /* print(sameDD) */
+      /* print("***") */
+      /* perms = morphisms */
+      /*   .symmetricDifference(morphisms.identity, morphisms.constant(sameDD)) */
+      /*   .apply(on:perms) */
+      return bbb
+    }
+
+    let SSS = ["x", "y", "z"]
+    let ori: [Int] = Array(1...15)
+    let take = 100
+    print("AAA")
+    var SW = Stopwatch()
+    SW.reset()
+    let res = prod(domains:[["x", "y", "z"]: ori])
+    print("mfdd", SW.elapsed.humanFormat)
+    /* var ind = 0 */
+    /* for r in res { */
+    /*   if (r.count == 3) { */
+    /*     ind += 1 */
+    /*     print(r) */
+    /*   } */
+    /* } */
+    /*  */
+    /* print(ind) */
+    /* let res = i.apply(on:fa) */
+    print(res.count, factory.createdCount)
+    SW.reset()
+    let p = permutationsWithoutRepetitionFrom(ori, taking:3)
+    let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) }
+    print("zzz", SW.elapsed.humanFormat)
+    SW.reset()
+    print(p.count)
+    /* let i = morphisms.union( */
+    /*   morphisms.insert(assignments:[("x", 1), ("y", 2)]), morphisms.constant( */
+    /*     factory.encode(family:fb) */
+    /*   ) */
+    /* ) */
+    /* fa.pointer = factory.zero */
+
+    /* let p = permutationsWithoutRepetitionFrom(ori, taking:take) */
+    /* let p = combine(lists:[ori, ori, ori]) */
+    /* print("BBB") */
+    /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
+    /* print("CCC") */
+    /* let owo = factory.encode(family:pd) */
+    /* print("DDD") */
+    /* print(owo.count) */
+    /* print(factory.createdCount) */
+    /* print(Float(factory.createdCount) / Float(owo.count)) */
+    /* print(permutationsWithoutRepetitionFrom([1, 2, 3, 4], taking:take)) */
+
+    /* var c = factory.encode(family:factory.one) */
+    /* let morphism = morphisms. */
+    /* print(c) */
+    /* print(permutationsWithoutRepetitionFrom([1, 2, 3, 4], taking:3)) */
+
+    /* let fa = [[1: "a", 2: "b"], [1: "a", 3: "c"], [4: "d", 3: "c"], [1: "b", 2: "c"]] */
+    /* let fb = [[1: "d", 3: "e"]] */
+    /* let fa = [[1, 2, 3, 4].map { ["a": $0, "b": $0] }][0] */
+    /* let fa = [[1, 2, 3, 4].map { ["a": $0] } + [1, 2, 3, 4].map { ["b": $0] }][0] */
+    /* let fa = [["x": 1, "y": 2], ["x": 1, "y": 3]] */
+    /* let fb = [["f": 0]] */
+    /* let i = morphisms.union( */
+    /*   morphisms.insert(assignments:[("x", 1), ("y", 2)]), morphisms.constant( */
+    /*     factory.encode(family:fb) */
+    /*   ) */
+    /* ) */
+    /* let morphism = morphisms.insert(assignments:["f": 0]) */
+    /* let fa = [1, 2, 3].map { ["a": $0] } */
+    /*   + [1, 2, 3].map { ["b": $0] } */
+    /*   [> let fb = [1, 2, 3, 4].map { ["a": $0] } <] */
+    /*   [> let issou = factory.encode(family:[["x": 3]]) <] */
+    /*  */
+    /* let e = factory.encode(family:fa) */
+    /* print(e) */
+    /* factory.printM(e.pointer) */
+    /* let res = i.apply(on:e) */
+    /* factory.printM(res.pointer) */
+    /* print(res) */
+
+    /* let i = morphisms.inductive(function:{ [unowned self] this, pointer in */
+    /*   return ( */
+    /*     take:pointer.pointee.take.mapValues({ _ in */
+    /*       morphisms.constant(factory.zero).apply(on:) */
+    /*     }), skip:morphisms.identity.apply(on:) */
+    /*   ) */
+    /* }) */
+    /* let morphism = morphisms.composition( */
+    /*   of:morphisms.identity, with:morphisms.constant(factory.encode(family:fa)) */
+    /* ) */
+    /* let res = morphism.apply(on:factory.encode(family:fb)) */
+    /* print(res) */
+    /* print(c) */
+    /* print(c.count) */
+    /* print(type(of:c)) */
+
+    exit(0)
+
+    assertionFailure()
+    /* var morphisms: MFDDMorphismFactory<Int, String> { factory.morphisms } */
+    /* morphism.apply(on: factory.encode(family: [[1: "a", 2: "b"], [1: "a", 3: "c"]])), */
+    /* factory.encode(family:results as! [[String: Value]]) */
+    /* let morphism = morphisms.filter(excluding:[(key:3, values:["c"]), (key:4, values:["d"])]) */
+    /* print(factory.encode(family:(results as! Dictionary<String, T>).map { $0.key, $0.value })) */
+    /* print(factory.encode(family:[[1: "a", 2: "b"], [1: "a", 3: "c"]])) */
+    /* print(morphism.apply(on:factory.encode(family:[[1: "a", 2: "b"], [1: "a", 3: "c"]]))) */
+
     // Filter out the bindings for which the transition's guards don't hold.
-    for condition in self.conditions {
+    for (e1, e2) in self.conditions {
       results = results.filter { binding in
-        condition(binding)
+        toValue(e1, binding) == toValue(e2, binding)
+          /* == */
+          /* switch e1 { */
+          /* case .value(let v): */
+          /*   return v */
+          /* case .str(let s): */
+          /*   return try! interpreter.eval(string:e2, replace:binding as! Dictionary<String, Value>) */
+          /* } */
+
+          /* (try! interpreter.eval( */
+          /*     string:e1, replace:binding as! Dictionary<String, Value> */
+          /*   )) == (try! interpreter.eval(string:e2, replace:binding as! Dictionary<String, Value>)) */
       }
     }
 
@@ -231,7 +674,7 @@ public class PredicateTransition<T: Equatable> {
     from marking: PredicateNet<T>.MarkingType,
     with binding: Binding,
     interpreter: Interpreter
-  ) -> PredicateNet<T>.MarkingType? {
+  ) -> (PredicateNet<T>.MarkingType, [String: Value])? {
 
     // Check whether the provided binding is valid.
     let variables = self.inboundVariables()
@@ -244,10 +687,11 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    // Check whether the transition's guard hold for provided binding.
-    for condition in self.conditions {
-      guard condition(binding) else { return nil }
-    }
+    // TODO: ???
+    /* // Check whether the transition's guard hold for provided binding. */
+    /* for condition in self.conditions { */
+    /*   guard condition(binding) else { return nil } */
+    /* } */
 
     var result = marking
 
@@ -261,26 +705,18 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
+    var new: [String: Value] = [:]
     // Apply the postconditions.
     for arc in self.postconditions {
       for item in arc.label {
         switch item {
         case .variable(let v):
-          /* print(v) */
-          /* let alpine = arc.sexpr!.compiler(replace:binding as! [String: String]) */
-          /* if alpine[0].contains("(") { */
-          /*   let res = try! interpreter.eval(string:alpine[0]) */
-          /*   result[arc.place]!.append("\(res)" as! T) */
-          /* } else { */
-          /*   result[arc.place]!.append(alpine[0] as! T) */
-          /* } */
-          print("-------------------------")
-          print("eval", v, "with replace")
-          (binding as! Dictionary<String, Value>).forEach { print($0.key, $0.value) }
-          print()
+          /* print("-------------------------") */
+          /* print("eval", v, "with replace") */
+          /* (binding as! Dictionary<String, Value>).forEach { print($0.key, $0.value) } */
           let m = try! interpreter.eval(string:v, replace:binding as! Dictionary<String, Value>)
-          binding.forEach { print($0.key, $0.value) }
-          result[arc.place]!.append(m)
+          result[arc.place]!.append(m as! T)
+          new[v] = m
           break
         case .function(let f):
           /* result[arc.place]!.append(f(binding)) */
@@ -289,7 +725,7 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    return result
+    return (result, new)
   }
 
   public var varInfos: [String: Int]
@@ -303,8 +739,7 @@ public class PredicateTransition<T: Equatable> {
   /// The conditions the transition checks on its binding before it can be fired.
   ///
   /// Note that we use an array rather than a set, because Swift functions are not hashable.
-  public let conditions: [(Binding) -> Bool]
-
+  public let conditions: [(CondTerm, CondTerm)]
   // MARK: Internals
 
   /// Identify the variables that should be bound in inbound each place.
@@ -351,6 +786,22 @@ extension PredicateTransition: Hashable {
 }
 
 /// Structure for arcs of predicate nets.
+public class ConditionTerm {
+
+  public init(e1: CondTerm, e2: CondTerm) {
+    self.e1 = e1
+    self.e2 = e2
+  }
+
+  let e1: CondTerm
+  let e2: CondTerm
+
+  /* public static func == (lhs: PredicateArc, rhs: PredicateArc) -> Bool { */
+  /*   return lhs === rhs */
+  /* } */
+}
+
+/// Structure for arcs of predicate nets.
 public class PredicateArc<T: Equatable>: Hashable {
 
   public init(place: PredicateNet<T>.PlaceType, label: [PredicateLabel<T>], sexpr: SExpression?) {
@@ -370,7 +821,6 @@ public class PredicateArc<T: Equatable>: Hashable {
   public static func == (lhs: PredicateArc, rhs: PredicateArc) -> Bool {
     return lhs === rhs
   }
-
 }
 
 public  enum PredicateLabel <T: Equatable> {
