@@ -193,6 +193,8 @@ public class PredicateTransition<T: Equatable> {
     let variables = self.inboundVariables()
     let sortedPlaces = variables.keys.sorted()
 
+    var SWD = Stopwatch()
+    SWD.reset()
     // Compute all permutations of place tokens.
     let choices = sortedPlaces.map { permutations(of:marking[$0]!) }
 
@@ -230,6 +232,11 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
+    var mftimeD = SWD.elapsed
+    print("base", mftimeD.humanFormat)
+    print(results.count)
+    print()
+
     let toValue = { (e: CondTerm, binding: Binding) -> Value in
       switch e {
       case .value(let v):
@@ -239,59 +246,7 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    /* let factory = MFDDFactory<String, Value>() */
-    /* var morphisms: MFDDMorphismFactory<String, Value>{ */
-    /*   factory.morphisms */
-    /* } */
-
-    /* def powerset(lst): */
-    /*     """Pseudo-code for generating the power set of lst.""" */
-    /*     if empty_list: */
-    /*         return "List containing the empty list" */
-    /*     else: */
-    /*         recursive_result = powerset("Rest of lst") */
-    /*         new_elements = "Add first of lst to every elem in recursive_result" */
-    /*         return "Combine the elements in recursive_result and new_elements" */
-
-    /* var a: MFDD<String, Value> */
-    /* var b: MFDD<String, Value> */
-    /* a = factory.one */
-    /* b = factory.encode(family:(results as! [[String: Value]])) */
-    /* print("createdCount", factory.createdCount) */
-    /* let zero = try! interpreter.eval(string:"1") */
-    /* let morphism = morphisms.intersection(morphisms.identity, morphisms.constant(b)) */
-    /* [> print(a) <] */
-    /* [> print(b) <] */
-    /* [> print(morphism.apply(on:factory.encode(family:factory.one))) <] */
-    /* [> print("createdCount", factory.createdCount) <] */
-    /* [> print(a.intersection(b)) <] */
-    /* print(b.count) */
-    /* print(results.count) */
-    /* let morph = factory.morphisms.insert(assignments:["issou": zero]) */
-    /* var x = morph.apply(on:b) */
-    /* var y: [[String: Value]] = x.map { $0 } */
-    /* print("createdCount", factory.createdCount) */
-    /* print() */
-
-    /* func perm(_ list: [Int]) -> [[Int]] { */
-    /*   if list.count == 1 { */
-    /*     return [s] */
-    /*   } */
-    /*   var results: [[Int]] = [] */
-    /*   for (i, v) in list.enumerated() { */
-    /*     results.append( */
-    /*   } */
-    /*   return 1 */
-    /* } */
-
-    /* def perms(s):         */
-    /* if(len(s)==1): return [s] */
-    /* result=[] */
-    /* for i,v in enumerate(s): */
-    /*     result += [v+p for p in perms(s[:i]+s[i+1:])] */
-    /* return result */
-
-    let factory = MFDDFactory<String, Int>(bucketCapacity:1024*1024)
+    let factory = MFDDFactory<String, Int>(bucketCapacity:1024*128)
     var morphisms: MFDDMorphismFactory<String, Int>{
       factory.morphisms
     }
@@ -376,8 +331,7 @@ public class PredicateTransition<T: Equatable> {
 
     func prod(domains: [[String]: [Int]]) -> ADD {
       /* let a = domains.map { (keys, values) in values. } */
-      var SW = Stopwatch()
-      /* SW.reset() */
+
       var dd = domains.flatMap { keys, values in
         keys.map { key in
           factory.encode(
@@ -387,98 +341,116 @@ public class PredicateTransition<T: Equatable> {
           )
         }
       }
-      /* print("first", SW.elapsed.humanFormat) */
-      /*  */
-      /* SW.reset() */
-      var perms = dd.last!
-      for DD in dd[0...dd.count-2].reversed() {
-        func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-          let take = pointer.pointee.take.mapValues { _ in
-            return morphisms.constant(perms).apply(on:)
-          }
-          /*   } */
-          /* ) */
-          let res = ADD.Inductive.Result(take:take, skip:morphisms.identity.apply(on:))
-          return res
-        }
-        perms = morphisms.inductive(function:test).apply(on:DD)
-        /* print(perms) */
-        /* print(perms.count) */
-      }
-      /* print("second", SW.elapsed.humanFormat) */
-      /* print("aaa") */
-      /*  */
-      /* SW.reset() */
-      let SSSMAP = Dictionary(
-        uniqueKeysWithValues:SSS.map { key in
-          (key, SSS.filter { $0 > key })
+
+      let keysFlat = domains.keys.reduce(
+        [], { res, cur in
+          res + cur
         }
       )
 
-      func del(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-        /* let tmp = pointer.pointee.take.keys.map { val in */
-        /*   fil.flatMap { key in */
-        /*     (key, [val]) as! (String, [Int]) */
-        /*   } */
-        /* } */
-        let t = Dictionary(
-          uniqueKeysWithValues:pointer.pointee.take.map { (val, point) in
-            (
-              val, morphisms.composition(
-                of:this, with:morphisms.filter(
-                  excluding:SSSMAP[pointer.pointee.key]!.flatMap { key in
-                    (key, [val, 554]) as! (String, [Int])
-                  }
-                )
-              ).apply(on:)
-            )
+      let valFlat = Dictionary(
+        uniqueKeysWithValues:domains.flatMap { keys, values in
+          keys.flatMap { key in
+            (key, values.hashValue)
           }
-        )
-        /* let t = { val, _ in } */
-        /* let tt = t.map { } */
-        /* let t = tmp.flatMap { zzz in */
-        /*   pointer.pointee.take.mapValues { _ in morphisms.remove(valuesForKeys:zzz).apply(on:) } */
-        /* } */
-        let iii = ADD.Inductive.Result(
-          /* take:[1: morphisms.identity.apply(on:)], skip:morphisms.identity.apply(on:) */
-          take:t, skip:morphisms.constant(factory.zero).apply(on:)
-        )
-        return iii
-        /* let phi = morphisms.composition(of:this, with:) */
-        /* pointer.pointee.take.mapValues { _ in */
-        /*             morphisms.identity.apply(on:) */
-        /* let res = ADD.Inductive.Result( */
-        /*   [> take:t, skip:morphisms.identity.apply(on:) <] */
-        /*   take:[1: morphisms.identity.apply(on:)], skip:morphisms.identity.apply(on:) */
-        /* ) */
-        /* return res */
+        }
+      )
+      print(keysFlat)
+      print(valFlat)
+
+      var perms = dd.last!
+      for IND in (0...dd.count-2).reversed() {
+        func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+          let take = Dictionary(
+            uniqueKeysWithValues:pointer.pointee.take.map { (val, pointDel) in
+              return (
+                val, morphisms.constant(ADD(
+                  pointer:factory.removeSame(
+                    perms.pointer, val, valFlat, valFlat[pointer.pointee.key]!
+                  ), factory:factory
+                )).apply(on:)
+              )
+            }
+          )
+
+          let res = ADD.Inductive.Result(take:take, skip:morphisms.identity.apply(on:))
+          return res
+        }
+
+        perms = morphisms.inductive(function:test).apply(on:dd[IND])
       }
-      var bbb = morphisms.inductive(function:del).apply(on:perms)
-      /* bbb.pointer.pointee = morphisms */
+
+      return perms
+
+      /* print("second", SW.elapsed.humanFormat) */
+      /*  */
+      /* SW.reset() */
+      /* let SSSMAP = Dictionary( */
+      /*   uniqueKeysWithValues:SSS.map { key in */
+      /*     (key, SSS.filter { $0 > key }) */
+      /*   } */
+      /* ) */
+      /*  */
+      /* var tot: UInt64 = 0 */
+      /* func del(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result { */
+      /*   let t = Dictionary( */
+      /*     uniqueKeysWithValues:pointer.pointee.take.map { (val, point) in */
+      /*       ( */
+      /*         val, morphisms.filter( */
+      /*           excluding:SSS.flatMap { key in */
+      /*             (key, [val]) as! (String, [Int]) */
+      /*           } */
+      /*         ).apply(on:) */
+      /*       ) */
+      /*     } */
+      /*   ) */
+      /*  */
+      /*   let iii = ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:)) */
+      /*   return iii */
+      /* } */
+
+      /* var haha = ADD(other:dd[0]) */
+      /* haha = morphisms.insert(assignments:["a": 1212]).apply(on:haha) */
+      /* print("A", factory.createdCount, haha.factory.createdCount, dd[0].count, haha.count, haha) */
+      /* print(haha) */
+      /* print(factory === haha.factory) */
+      /* print(dd[0].factory === haha.factory) */
+      /* print(dd[0].factory === factory) */
+      /* print(dd[0].pointer == haha.pointer) */
+      /* print(dd[0] == haha) */
+
+      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"a").apply(on:perms) */
+      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"b").apply(on:perms) */
+      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"c").apply(on:perms) */
+      /* return perms */
+      /* factory.printM(bbb.pointer) */
+
+      /* bbb.pointer.pointee.take.mapValues { _ in morphisms.constant(factory.zero).apply(on:) } */
+      /* bbb = morphisms.inductive(function:del).apply(on:bbb) */
       /*   .inductive(substitutingOneWith:factory.zero, function:del) */
       /*   .apply(on:bbb.pointer.pointee.take) */
       /* print("third", SW.elapsed.humanFormat) */
       /* print(bbb) */
       /* print(bbb.count) */
-      return bbb
-
-      func delsmall(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-        /* if (pointer.pointee.take.count < 1) { */
-        /* return ADD.Inductive.Result( */
-        /*   take:pointer.pointee.take.mapValues { _ in */
-        /*     morphisms.identity.apply(on:) */
-        /*   }, skip:morphisms.constant(factory.zero).apply(on:) */
-        /* ) */
-        /* } */
-
-        let t = pointer.pointee.take.mapValues { _ in
-          morphisms.composition(of:this, with:morphisms.identity).apply(on:)
-        }
-        return ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:))
-      }
-      /* factory.printM(bbb.pointer) */
-
-      return bbb
+      /* return bbb */
+      /*  */
+      /* func delsmall(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result { */
+      /*   [> if (pointer.pointee.take.count < 1) { <] */
+      /*   [> return ADD.Inductive.Result( <] */
+      /*   [>   take:pointer.pointee.take.mapValues { _ in <] */
+      /*   [>     morphisms.identity.apply(on:) <] */
+      /*   [>   }, skip:morphisms.constant(factory.zero).apply(on:) <] */
+      /*   [> ) <] */
+      /*   [> } <] */
+      /*  */
+      /*   let t = pointer.pointee.take.mapValues { _ in */
+      /*     morphisms.composition(of:this, with:morphisms.identity).apply(on:) */
+      /*   } */
+      /*   return ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:)) */
+      /* } */
+      /* [> factory.printM(bbb.pointer) <] */
+      /*  */
+      /* return bbb */
       /* bbb = morphisms */
       /*   .fixedPoint(of:morphisms.inductive(substitutingOneWith:factory.zero, function:delsmall)) */
       /*   .apply(on:bbb) */
@@ -542,34 +514,52 @@ public class PredicateTransition<T: Equatable> {
       /* perms = morphisms */
       /*   .symmetricDifference(morphisms.identity, morphisms.constant(sameDD)) */
       /*   .apply(on:perms) */
-      return bbb
+      /* return bbb */
     }
 
-    let SSS = ["x", "y", "z"]
-    let ori: [Int] = Array(1...15)
+    let SSS = ["a", "b", "c"]
+    let ori: [Int] = Array(1...7)
     let take = 100
     print("AAA")
     var SW = Stopwatch()
     SW.reset()
-    let res = prod(domains:[["x", "y", "z"]: ori])
-    print("mfdd", SW.elapsed.humanFormat)
+    var res = prod(domains:[SSS: ori, ["f", "g"]: [8, 9, 10]])
+    var mftime = SW.elapsed
+    print("mfdd", mftime.humanFormat)
+    /* print(res) */
+    /* print(res) */
+    SW.reset()
+    /* let res2 = prod(domains:[SSS: Array(1...4)]) */
+    /* let mftime2 = SW.elapsed */
+    /* print("mfdd2", mftime2.humanFormat) */
+    /* print(res2) */
     /* var ind = 0 */
+    /* var three = 0 */
     /* for r in res { */
-    /*   if (r.count == 3) { */
+    /*   if (Set(r.values).count == 3) { */
     /*     ind += 1 */
-    /*     print(r) */
+    /*   } */
+    /*   if (r.count == 3) { */
+    /*     three += 1 */
     /*   } */
     /* } */
     /*  */
-    /* print(ind) */
+    /* print(ind, "!!!") */
     /* let res = i.apply(on:fa) */
     print(res.count, factory.createdCount)
+    /* print(res2.count, factory.createdCount) */
     SW.reset()
     let p = permutationsWithoutRepetitionFrom(ori, taking:3)
     let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) }
-    print("zzz", SW.elapsed.humanFormat)
-    SW.reset()
-    print(p.count)
+    let ctime = SW.elapsed
+    print("zzz", ctime.humanFormat)
+    /* print(p.count) */
+    /* print(factory.encode(family:pd) == res2) */
+    print(Float(factory.createdCount) / Float(res.count))
+    /* print(Float(factory.createdCount) / Float(res2.count)) */
+    print(Float(mftime.ns) / Float(ctime.ns))
+    /* print(Float(mftime2.ns) / Float(ctime.ns)) */
+
     /* let i = morphisms.union( */
     /*   morphisms.insert(assignments:[("x", 1), ("y", 2)]), morphisms.constant( */
     /*     factory.encode(family:fb) */
@@ -586,7 +576,6 @@ public class PredicateTransition<T: Equatable> {
     /* print("DDD") */
     /* print(owo.count) */
     /* print(factory.createdCount) */
-    /* print(Float(factory.createdCount) / Float(owo.count)) */
     /* print(permutationsWithoutRepetitionFrom([1, 2, 3, 4], taking:take)) */
 
     /* var c = factory.encode(family:factory.one) */

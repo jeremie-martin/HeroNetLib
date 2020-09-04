@@ -39,8 +39,8 @@ final class HeroNetLibTests: XCTestCase {
         "transition": [
           {
             "pre": {
-              "p1": [ "x", "y" ],
-              "p2": [ "f" ]
+              "p1": [ "a", "b", "c" ],
+              "p2": [ "f", "g" ]
             },
             "post": {
               "p2": [ "f" ],
@@ -61,7 +61,7 @@ final class HeroNetLibTests: XCTestCase {
         ],
         
         "marking": {
-          "p1": [ "0", "1", "2", "3" ],
+          "p1": [ "0", "1", "2", "3", "4", "5", "6" ],
           "p2": [ "add", "sub", "mul" ],
           "p3": [],
           "p4": []
