@@ -4,6 +4,12 @@ import Interpreter
 import Foundation
 import DDKit
 
+/* extension String: Comparable { */
+/*   static func< (lhs: String, rhs: String) -> Bool { */
+/*     return lhs < rhs */
+/*   } */
+/* } */
+
 public func setSeed(seed: UInt = 5323) {
   PetriKit.Random.seed = UInt(time(nil));
 }
@@ -246,393 +252,128 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    let factory = MFDDFactory<String, Int>(bucketCapacity:1024*128)
-    var morphisms: MFDDMorphismFactory<String, Int>{
-      factory.morphisms
-    }
-
-    typealias ADD = MFDD<String, Int>
-    func permutationsWithoutRepetitionFrom<T>(_ elements: [T], taking: Int) -> [[T]] {
-      guard elements.count >= taking else { return [] }
-      guard elements.count >= taking && taking > 0 else { return [[]] }
-
-      if taking == 1 {
-        return elements.map { [$0] }
+    for _ in 1...1 {
+      let factory = MFDDFactory<String, Int>(bucketCapacity:1024*128)
+      var morphisms: MFDDMorphismFactory<String, Int>{
+        factory.morphisms
       }
 
-      var permutations = [[T]]()
-      /* var pdd = factory.encode(family:[[]]) */
-      for (index, element) in elements.enumerated() {
-        var reducedElements = elements
-        reducedElements.remove(at:index)
-        let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1)
-        let uwu = owo.map { [element] + $0 }
-        /* print(taking, owo, permutations) */
-        /* print() */
-        permutations += uwu
-      }
+      typealias ADD = MFDD<String, Int>
+      func permutationsWithoutRepetitionFrom<T>(_ elements: [T], taking: Int) -> [[T]] {
+        guard elements.count >= taking else { return [] }
+        guard elements.count >= taking && taking > 0 else { return [[]] }
 
-      return permutations
-    }
-
-    /* func permDD(_ elements: [T], taking: Int) -> ADD { */
-    /*   guard elements.count >= taking else { return factory.zero } */
-    /*   guard elements.count >= taking && taking > 0 else { return factory.zero } */
-    /*  */
-    /*   if taking == 1 { */
-    /*  */
-    /*     return elements.map { [$0] } */
-    /*   } */
-    /*  */
-    /*   var permutations = [[T]]() */
-    /*   var pdd = factory.encode(family:[[]]) */
-    /*   for (index, element) in elements.enumerated() { */
-    /*     var reducedElements = elements */
-    /*     reducedElements.remove(at:index) */
-    /*     let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1) */
-    /*     let uwu = owo.map { [element] + $0 } */
-    /*     print(taking, owo, permutations) */
-    /*     print() */
-    /*     permutations += uwu */
-    /*   } */
-    /*  */
-    /*   return permutations */
-    /* } */
-    func combine<T>(lists: [[T]], partial: [T] = []) -> [[T]] {
-      // print("combine(lists: \(lists), partial: \(partial))")
-      if lists.isEmpty {
-        // recursive base case: lists is now empty, so partial
-        // is complete, so return it in an enclosing array
-        // print("... returning \([partial])")
-        return [partial]
-      } else {
-        // make lists mutable so that we can remove the first sub-array
-        var lists = lists
-
-        // remove the first sub-array from lists which is now shorter
-        let first = lists.removeFirst()
-
-        // create an array to hold all of the combinations
-        var result = [[T]]()
-
-        // take each element from the first sub-array, append it to
-        // the partial result, and call combine to continue the
-        // process.  Take the results returned from combine and append
-        // those to the result array.
-        for n in first {
-          result += combine(lists:lists, partial:partial + [n])
+        if taking == 1 {
+          return elements.map { [$0] }
         }
 
-        // Return the results
-        // print("... returning \(result)")
-        return result
+        var permutations = [[T]]()
+        for (index, element) in elements.enumerated() {
+          var reducedElements = elements
+          reducedElements.remove(at:index)
+          let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1)
+          let uwu = owo.map { [element] + $0 }
+          permutations += uwu
+        }
+
+        return permutations
       }
-    }
 
-    func prod(domains: [[String]: [Int]]) -> ADD {
-      /* let a = domains.map { (keys, values) in values. } */
+      func prod(domains: [[String]: [Int]]) -> ADD {
+        let domainsFlat = domains
+          .flatMap { (keys, values) in keys.flatMap { ($0, values) } }
+          .sorted { $0.0 < $1.0 }
 
-      var dd = domains.flatMap { keys, values in
-        keys.map { key in
+        var dd = domainsFlat.map { key, values in
           factory.encode(
             family:values.map { val in
               [key: val]
             }
           )
         }
-      }
 
-      let keysFlat = domains.keys.reduce(
-        [], { res, cur in
-          res + cur
-        }
-      )
-
-      let valFlat = Dictionary(
-        uniqueKeysWithValues:domains.flatMap { keys, values in
-          keys.flatMap { key in
-            (key, values.hashValue)
-          }
-        }
-      )
-      print(keysFlat)
-      print(valFlat)
-
-      var perms = dd.last!
-      for IND in (0...dd.count-2).reversed() {
-        func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-          let take = Dictionary(
-            uniqueKeysWithValues:pointer.pointee.take.map { (val, pointDel) in
-              return (
-                val, morphisms.constant(ADD(
-                  pointer:factory.removeSame(
-                    perms.pointer, val, valFlat, valFlat[pointer.pointee.key]!
-                  ), factory:factory
-                )).apply(on:)
-              )
+        let valFlat = Dictionary(
+          uniqueKeysWithValues:domains.flatMap { keys, values in
+            keys.flatMap { key in
+              (key, values.hashValue)
             }
-          )
+          }
+        )
 
-          let res = ADD.Inductive.Result(take:take, skip:morphisms.identity.apply(on:))
-          return res
+        var perms = dd.last!
+        for IND in (0...dd.count-2).reversed() {
+          func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+            return ADD.Inductive.Result(
+              take:Dictionary(
+                uniqueKeysWithValues:pointer.pointee.take.map { (val, pointDel) in
+                  return (
+                    val, morphisms.constant(
+                      perms.removeSame(val, valFlat, pointer.pointee.key)
+                    ).apply(on:)
+                  )
+                }
+              ), skip:morphisms.constant(factory.zero).apply(on:)
+            )
+          }
+
+          perms = morphisms.inductive(function:test).apply(on:dd[IND])
+          /* var st = Set<Dictionary<String, Int>>() */
+          /* dd[IND].pointer.pointee.take = Dictionary( */
+          /*   uniqueKeysWithValues:dd[IND].pointer.pointee.take.map { (val, pointDel) in */
+          /*     return (val, dd[IND+1].removeSame(val, valFlat, dd[IND].pointer.pointee.key).pointer) */
+          /*   } */
+          /* ) */
         }
 
-        perms = morphisms.inductive(function:test).apply(on:dd[IND])
+        factory.cleanCache()
+
+        return perms
+
       }
 
-      return perms
+      let SSS = ["a", "b", "c"]
+      let ori: [Int] = Array(1...5)
+      let take = 100
+      var SW = Stopwatch()
+      SW.reset()
+      /* var res = prod(domains:[SSS: ori]) */
+      var res = prod(domains:[SSS: ori, ["f", "g"]: [1, 7, 4]])
+      /* var mftime = SW.elapsed */
+      /* print("mfdd", mftime.humanFormat) */
+      /* print(res.count, factory.createdCount) */
 
-      /* print("second", SW.elapsed.humanFormat) */
-      /*  */
-      /* SW.reset() */
-      /* let SSSMAP = Dictionary( */
-      /*   uniqueKeysWithValues:SSS.map { key in */
-      /*     (key, SSS.filter { $0 > key }) */
-      /*   } */
-      /* ) */
-      /*  */
-      /* var tot: UInt64 = 0 */
-      /* func del(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result { */
-      /*   let t = Dictionary( */
-      /*     uniqueKeysWithValues:pointer.pointee.take.map { (val, point) in */
-      /*       ( */
-      /*         val, morphisms.filter( */
-      /*           excluding:SSS.flatMap { key in */
-      /*             (key, [val]) as! (String, [Int]) */
-      /*           } */
-      /*         ).apply(on:) */
-      /*       ) */
-      /*     } */
-      /*   ) */
-      /*  */
-      /*   let iii = ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:)) */
-      /*   return iii */
-      /* } */
-
-      /* var haha = ADD(other:dd[0]) */
-      /* haha = morphisms.insert(assignments:["a": 1212]).apply(on:haha) */
-      /* print("A", factory.createdCount, haha.factory.createdCount, dd[0].count, haha.count, haha) */
-      /* print(haha) */
-      /* print(factory === haha.factory) */
-      /* print(dd[0].factory === haha.factory) */
-      /* print(dd[0].factory === factory) */
-      /* print(dd[0].pointer == haha.pointer) */
-      /* print(dd[0] == haha) */
-
-      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"a").apply(on:perms) */
-      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"b").apply(on:perms) */
-      /* perms = morphisms.saturate(morphisms.inductive(function:del), to:"c").apply(on:perms) */
-      /* return perms */
-      /* factory.printM(bbb.pointer) */
-
-      /* bbb.pointer.pointee.take.mapValues { _ in morphisms.constant(factory.zero).apply(on:) } */
-      /* bbb = morphisms.inductive(function:del).apply(on:bbb) */
-      /*   .inductive(substitutingOneWith:factory.zero, function:del) */
-      /*   .apply(on:bbb.pointer.pointee.take) */
-      /* print("third", SW.elapsed.humanFormat) */
-      /* print(bbb) */
-      /* print(bbb.count) */
-      /* return bbb */
-      /*  */
-      /* func delsmall(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result { */
-      /*   [> if (pointer.pointee.take.count < 1) { <] */
-      /*   [> return ADD.Inductive.Result( <] */
-      /*   [>   take:pointer.pointee.take.mapValues { _ in <] */
-      /*   [>     morphisms.identity.apply(on:) <] */
-      /*   [>   }, skip:morphisms.constant(factory.zero).apply(on:) <] */
-      /*   [> ) <] */
-      /*   [> } <] */
-      /*  */
-      /*   let t = pointer.pointee.take.mapValues { _ in */
-      /*     morphisms.composition(of:this, with:morphisms.identity).apply(on:) */
-      /*   } */
-      /*   return ADD.Inductive.Result(take:t, skip:morphisms.constant(factory.zero).apply(on:)) */
-      /* } */
-      /* [> factory.printM(bbb.pointer) <] */
-      /*  */
-      /* return bbb */
-      /* bbb = morphisms */
-      /*   .fixedPoint(of:morphisms.inductive(substitutingOneWith:factory.zero, function:delsmall)) */
-      /*   .apply(on:bbb) */
-      /* factory.printM(bbb.pointer) */
-      /* [> bbb = morphisms.inductive(function:del).apply(on:bbb) <] */
-      /* [> let bbb = morphisms.remove(valuesForKeys:[("y", [2])]).apply(on:perms) <] */
-      /* print("-------------") */
-      /* print(bbb) */
-      /* print(bbb.count) */
-      /* print("-------------") */
-
-      /* let same = domains.flatMap { keys, values in */
-      /*   values.map { value in */
-      /*     keys.flatMap { key in */
-      /*       [key: value] */
-      /*     } */
+      /* let p = permutationsWithoutRepetitionFrom(ori, taking:3) */
+      /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
+      /* let owo = factory.encode(family:pd) */
+      /* for x in pd { */
+      /*   if res.contains(x) == false { */
+      /*     print("ripppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp") */
       /*   } */
       /* } */
-
-      /* let s = domains.first!.value */
-      /* var index: [Int] = [Int](repeating:0, count:s.count) */
-      /* func permutate(depth: Int) { */
-      /*   if depth == s.count { */
-      /*     print("lol") */
-      /*     for i in 0 ... s.count { */
-      /*       print(i) */
-      /*       print(index) */
-      /*       [> print(s[index[i]], terminator:" ") <] */
-      /*     } */
-      /*     print() */
-      /*     return */
-      /*     [> [> for (std::size_t i = 0; i < s.size(); ++i) <] <] */
-      /*     [> [> { <] <] */
-      /*     [> [>     std::cout << s[index[i]]; <] <] */
-      /*     [> [> } <] <] */
-      /*     [> [> std::cout << "\n"; <] <] */
-      /*     [> [> return; <] <] */
-      /*   } */
-      /*  */
-      /*   for i in 0 ... s.count { */
-      /*     index[depth] = i */
-      /*     permutate(depth:depth+1) */
+      /* var st = Set<Dictionary<String, Int>>() */
+      /* for x in res { */
+      /*   st.insert(x) */
+      /*   if Set(x.values).count != 5 { */
+      /*     print("riiiiiiiiiiiiip", x) */
       /*   } */
       /* } */
-      /* let pt = permutate(depth:0) */
-
-      /* var test = domains.flatMap { keys, values in */
-      /*   keys.map { key in */
-      /*     factory.encode( */
-      /*       family:values.map { val in */
-      /*         [key: val] */
-      /*       } */
-      /*     ) */
-      /*   } */
+      /* print("check", st.count) */
+      /* print("le count", st.count) */
+      /* print(owo.count, res.count) */
+      /* for x in res { */
+      /*   print(x) */
       /* } */
-      /*  */
-      /* let sameDD = factory.encode(family:same) */
-      /* print("***") */
-      /* print(sameDD) */
-      /* print("***") */
-      /* perms = morphisms */
-      /*   .symmetricDifference(morphisms.identity, morphisms.constant(sameDD)) */
-      /*   .apply(on:perms) */
-      /* return bbb */
+
+      /* print(res.contains(pd.map { (key, val) in (key, val) })) */
+      /* print(res.contains()) */
+
     }
-
-    let SSS = ["a", "b", "c"]
-    let ori: [Int] = Array(1...7)
-    let take = 100
-    print("AAA")
-    var SW = Stopwatch()
-    SW.reset()
-    var res = prod(domains:[SSS: ori, ["f", "g"]: [8, 9, 10]])
-    var mftime = SW.elapsed
-    print("mfdd", mftime.humanFormat)
     /* print(res) */
     /* print(res) */
-    SW.reset()
-    /* let res2 = prod(domains:[SSS: Array(1...4)]) */
-    /* let mftime2 = SW.elapsed */
-    /* print("mfdd2", mftime2.humanFormat) */
-    /* print(res2) */
-    /* var ind = 0 */
-    /* var three = 0 */
-    /* for r in res { */
-    /*   if (Set(r.values).count == 3) { */
-    /*     ind += 1 */
-    /*   } */
-    /*   if (r.count == 3) { */
-    /*     three += 1 */
-    /*   } */
-    /* } */
-    /*  */
-    /* print(ind, "!!!") */
-    /* let res = i.apply(on:fa) */
-    print(res.count, factory.createdCount)
-    /* print(res2.count, factory.createdCount) */
-    SW.reset()
-    let p = permutationsWithoutRepetitionFrom(ori, taking:3)
-    let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) }
-    let ctime = SW.elapsed
-    print("zzz", ctime.humanFormat)
-    /* print(p.count) */
-    /* print(factory.encode(family:pd) == res2) */
-    print(Float(factory.createdCount) / Float(res.count))
-    /* print(Float(factory.createdCount) / Float(res2.count)) */
-    print(Float(mftime.ns) / Float(ctime.ns))
-    /* print(Float(mftime2.ns) / Float(ctime.ns)) */
-
-    /* let i = morphisms.union( */
-    /*   morphisms.insert(assignments:[("x", 1), ("y", 2)]), morphisms.constant( */
-    /*     factory.encode(family:fb) */
-    /*   ) */
-    /* ) */
-    /* fa.pointer = factory.zero */
-
-    /* let p = permutationsWithoutRepetitionFrom(ori, taking:take) */
-    /* let p = combine(lists:[ori, ori, ori]) */
-    /* print("BBB") */
-    /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
-    /* print("CCC") */
-    /* let owo = factory.encode(family:pd) */
-    /* print("DDD") */
-    /* print(owo.count) */
-    /* print(factory.createdCount) */
-    /* print(permutationsWithoutRepetitionFrom([1, 2, 3, 4], taking:take)) */
-
-    /* var c = factory.encode(family:factory.one) */
-    /* let morphism = morphisms. */
-    /* print(c) */
-    /* print(permutationsWithoutRepetitionFrom([1, 2, 3, 4], taking:3)) */
-
-    /* let fa = [[1: "a", 2: "b"], [1: "a", 3: "c"], [4: "d", 3: "c"], [1: "b", 2: "c"]] */
-    /* let fb = [[1: "d", 3: "e"]] */
-    /* let fa = [[1, 2, 3, 4].map { ["a": $0, "b": $0] }][0] */
-    /* let fa = [[1, 2, 3, 4].map { ["a": $0] } + [1, 2, 3, 4].map { ["b": $0] }][0] */
-    /* let fa = [["x": 1, "y": 2], ["x": 1, "y": 3]] */
-    /* let fb = [["f": 0]] */
-    /* let i = morphisms.union( */
-    /*   morphisms.insert(assignments:[("x", 1), ("y", 2)]), morphisms.constant( */
-    /*     factory.encode(family:fb) */
-    /*   ) */
-    /* ) */
-    /* let morphism = morphisms.insert(assignments:["f": 0]) */
-    /* let fa = [1, 2, 3].map { ["a": $0] } */
-    /*   + [1, 2, 3].map { ["b": $0] } */
-    /*   [> let fb = [1, 2, 3, 4].map { ["a": $0] } <] */
-    /*   [> let issou = factory.encode(family:[["x": 3]]) <] */
-    /*  */
-    /* let e = factory.encode(family:fa) */
-    /* print(e) */
-    /* factory.printM(e.pointer) */
-    /* let res = i.apply(on:e) */
-    /* factory.printM(res.pointer) */
-    /* print(res) */
-
-    /* let i = morphisms.inductive(function:{ [unowned self] this, pointer in */
-    /*   return ( */
-    /*     take:pointer.pointee.take.mapValues({ _ in */
-    /*       morphisms.constant(factory.zero).apply(on:) */
-    /*     }), skip:morphisms.identity.apply(on:) */
-    /*   ) */
-    /* }) */
-    /* let morphism = morphisms.composition( */
-    /*   of:morphisms.identity, with:morphisms.constant(factory.encode(family:fa)) */
-    /* ) */
-    /* let res = morphism.apply(on:factory.encode(family:fb)) */
-    /* print(res) */
-    /* print(c) */
-    /* print(c.count) */
-    /* print(type(of:c)) */
-
-    exit(0)
-
-    assertionFailure()
-    /* var morphisms: MFDDMorphismFactory<Int, String> { factory.morphisms } */
-    /* morphism.apply(on: factory.encode(family: [[1: "a", 2: "b"], [1: "a", 3: "c"]])), */
-    /* factory.encode(family:results as! [[String: Value]]) */
-    /* let morphism = morphisms.filter(excluding:[(key:3, values:["c"]), (key:4, values:["d"])]) */
-    /* print(factory.encode(family:(results as! Dictionary<String, T>).map { $0.key, $0.value })) */
-    /* print(factory.encode(family:[[1: "a", 2: "b"], [1: "a", 3: "c"]])) */
-    /* print(morphism.apply(on:factory.encode(family:[[1: "a", 2: "b"], [1: "a", 3: "c"]]))) */
+    /* SW.reset() */
+    /* print(res.count, factory.createdCount) */
+    /* [> print(res2.count, factory.createdCount) <] */
+    /* SW.reset() */
 
     // Filter out the bindings for which the transition's guards don't hold.
     for (e1, e2) in self.conditions {
