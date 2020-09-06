@@ -198,6 +198,14 @@ public class PredicateTransition<T: Equatable> {
     // Sort the places so we always bind their variables in the same order.
     let variables = self.inboundVariables()
     let sortedPlaces = variables.keys.sorted()
+    print(variables)
+    print(marking)
+    let LMAO = Dictionary(
+      uniqueKeysWithValues:variables.map { (place, vars) in
+        (vars.map { $0.description as! String }, (marking[place]! as! [Value]))
+      }
+    )
+    print(LMAO)
 
     var SWD = Stopwatch()
     SWD.reset()
@@ -252,122 +260,155 @@ public class PredicateTransition<T: Equatable> {
       }
     }
 
-    for _ in 1...1 {
-      let factory = MFDDFactory<String, Int>(bucketCapacity:1024*128)
-      var morphisms: MFDDMorphismFactory<String, Int>{
-        factory.morphisms
+    let factory = MFDDFactory<String, Int>(bucketCapacity:1024*128)
+    var morphisms: MFDDMorphismFactory<String, Int>{
+      factory.morphisms
+    }
+
+    typealias ADD = MFDD<String, Int>
+    func permutationsWithoutRepetitionFrom<T>(_ elements: [T], taking: Int) -> [[T]] {
+      guard elements.count >= taking else { return [] }
+      guard elements.count >= taking && taking > 0 else { return [[]] }
+
+      if taking == 1 {
+        return elements.map { [$0] }
       }
 
-      typealias ADD = MFDD<String, Int>
-      func permutationsWithoutRepetitionFrom<T>(_ elements: [T], taking: Int) -> [[T]] {
-        guard elements.count >= taking else { return [] }
-        guard elements.count >= taking && taking > 0 else { return [[]] }
-
-        if taking == 1 {
-          return elements.map { [$0] }
-        }
-
-        var permutations = [[T]]()
-        for (index, element) in elements.enumerated() {
-          var reducedElements = elements
-          reducedElements.remove(at:index)
-          let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1)
-          let uwu = owo.map { [element] + $0 }
-          permutations += uwu
-        }
-
-        return permutations
+      var permutations = [[T]]()
+      for (index, element) in elements.enumerated() {
+        var reducedElements = elements
+        reducedElements.remove(at:index)
+        let owo = permutationsWithoutRepetitionFrom(reducedElements, taking:taking - 1)
+        let uwu = owo.map { [element] + $0 }
+        permutations += uwu
       }
 
-      func prod(domains: [[String]: [Int]]) -> ADD {
-        let domainsFlat = domains
-          .flatMap { (keys, values) in keys.flatMap { ($0, values) } }
-          .sorted { $0.0 < $1.0 }
+      return permutations
+    }
 
-        var dd = domainsFlat.map { key, values in
-          factory.encode(
-            family:values.map { val in
-              [key: val]
-            }
+    func prod(domains: [[String]: [Int]]) -> ADD {
+      let domainsFlat = domains.flatMap { (keys, values) in keys.flatMap { ($0, values) } }.sorted {
+        $0.0 < $1.0
+      }
+
+      var dd = domainsFlat.lazy.map { key, values in
+        factory.encode(
+          family:values.map { val in
+            [key: val]
+          }
+        )
+      }
+
+      let valFlat = Dictionary(
+        uniqueKeysWithValues:domains.flatMap { keys, values in
+          keys.flatMap { key in
+            (key, values.hashValue)
+          }
+        }
+      )
+
+      var perms = dd.last!
+      for IND in (0...dd.count-2).reversed() {
+        func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
+          return ADD.Inductive.Result(
+            take:Dictionary(
+              uniqueKeysWithValues:pointer.pointee.take.map { (val, pointDel) in
+                return (
+                  val, morphisms.constant(
+                    perms.removeSame(val, valFlat, valFlat[pointer.pointee.key]!)
+                  ).apply(on:)
+                )
+              }
+            ), skip:morphisms.constant(factory.zero).apply(on:)
           )
         }
 
-        let valFlat = Dictionary(
-          uniqueKeysWithValues:domains.flatMap { keys, values in
-            keys.flatMap { key in
-              (key, values.hashValue)
-            }
-          }
-        )
-
-        var perms = dd.last!
-        for IND in (0...dd.count-2).reversed() {
-          func test(this: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-            return ADD.Inductive.Result(
-              take:Dictionary(
-                uniqueKeysWithValues:pointer.pointee.take.map { (val, pointDel) in
-                  return (
-                    val, morphisms.constant(
-                      perms.removeSame(val, valFlat, pointer.pointee.key)
-                    ).apply(on:)
-                  )
-                }
-              ), skip:morphisms.constant(factory.zero).apply(on:)
-            )
-          }
-
-          perms = morphisms.inductive(function:test).apply(on:dd[IND])
-          /* var st = Set<Dictionary<String, Int>>() */
-          /* dd[IND].pointer.pointee.take = Dictionary( */
-          /*   uniqueKeysWithValues:dd[IND].pointer.pointee.take.map { (val, pointDel) in */
-          /*     return (val, dd[IND+1].removeSame(val, valFlat, dd[IND].pointer.pointee.key).pointer) */
-          /*   } */
-          /* ) */
-        }
-
-        factory.cleanCache()
-
-        return perms
-
+        perms = morphisms.inductive(function:test).apply(on:dd[IND])
+        /* var st = Set<Dictionary<String, Int>>() */
+        /* dd[IND].pointer.pointee.take = Dictionary( */
+        /*   uniqueKeysWithValues:dd[IND].pointer.pointee.take.map { (val, pointDel) in */
+        /*     return ( */
+        /*       val, dd[IND+1].pointer */
+        /*       //.removeSame(val, valFlat, valFlat[dd[IND].pointer.pointee.key]!).pointer */
+        /*     ) */
+        /*   } */
+        /* ) */
       }
 
-      let SSS = ["a", "b", "c"]
-      let ori: [Int] = Array(1...5)
-      let take = 100
-      var SW = Stopwatch()
-      SW.reset()
-      /* var res = prod(domains:[SSS: ori]) */
-      var res = prod(domains:[SSS: ori, ["f", "g"]: [1, 7, 4]])
-      /* var mftime = SW.elapsed */
-      /* print("mfdd", mftime.humanFormat) */
-      /* print(res.count, factory.createdCount) */
+      /* perms = perms.removeSame(domains.first!.value[0], valFlat, 5) */
+      factory.cleanCache()
 
-      /* let p = permutationsWithoutRepetitionFrom(ori, taking:3) */
-      /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
-      /* let owo = factory.encode(family:pd) */
-      /* for x in pd { */
-      /*   if res.contains(x) == false { */
-      /*     print("ripppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp") */
-      /*   } */
-      /* } */
-      /* var st = Set<Dictionary<String, Int>>() */
-      /* for x in res { */
-      /*   st.insert(x) */
-      /*   if Set(x.values).count != 5 { */
-      /*     print("riiiiiiiiiiiiip", x) */
-      /*   } */
-      /* } */
-      /* print("check", st.count) */
-      /* print("le count", st.count) */
-      /* print(owo.count, res.count) */
-      /* for x in res { */
-      /*   print(x) */
-      /* } */
-
-      /* print(res.contains(pd.map { (key, val) in (key, val) })) */
-      /* print(res.contains()) */
-
+      return perms
     }
+
+    let SSS = ["g", "f", "m"]
+    let ori: [Int] = Array(1...50)
+    let take = 100
+    var SW = Stopwatch()
+    var mftime = SW.elapsed
+    SW.reset()
+    /* var res = prod(domains:LMAO) */
+    /* print(self.preconditions.first!.label[0]) */
+    /* var res = prod(domains:[SSS: ori, ["a", "x", "y"]: [4, 5, 112, 113]]) */
+    var res = prod(domains:[SSS: ori])
+    mftime = SW.elapsed
+    print("first", mftime.humanFormat)
+    print(res.count, factory.createdCount)
+    SW.reset()
+    var res2 = prod(domains:[["x", "z", "a", "i"]: [10, 11, 12, 1222, 1333, 1555]])
+    mftime = SW.elapsed
+    print("second", mftime.humanFormat)
+    print(res2.count, factory.createdCount)
+    SW.reset()
+    var mdr = ADD(pointer:factory.fusion(res.pointer, res2.pointer), factory:factory)
+    mftime = SW.elapsed
+    print("fusion", mftime.humanFormat)
+    print(mdr.count, factory.createdCount)
+    /* var res2 = prod(domains:[["c"]: [10, 11, 12]]) */
+
+    exit(0)
+    /* print(mdr) */
+    /* print(mdr.pointer.pointee) */
+    /* print(mdr) */
+
+    /* results.forEach { */
+    /*   if res.contains($0 as! Dictionary<String, Value>) == false { */
+    /*     print("riiiiiiiiiiiiiiiiip") */
+    /*   } */
+    /* } */
+    /* (res as! Dictionary<String, Value>).forEach { */
+    /*   if results.contains($0) == false { */
+    /*     print("ruuuuuuuuuuuuup") */
+    /*   } */
+    /* } */
+
+    /* let p = permutationsWithoutRepetitionFrom(ori, taking:4) */
+    /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
+    /* let owo = factory.encode(family:pd) */
+    /* for x in pd { */
+    /*   if res.contains(x) == false { */
+    /*     print("ripppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp", x) */
+    /*   } */
+    /* } */
+    /* print(owo.count) */
+    var st = Set<Dictionary<String, Int>>()
+    for x in mdr {
+      st.insert(x)
+      if Set(x.values).count != 8 {
+        print("riiiiiiiiiiiiip", x)
+      }
+    }
+    print("check", st.count)
+    exit(0)
+    /* print("le count", st.count) */
+    /* print(owo.count, res.count) */
+    /* for x in res { */
+    /*   print(x) */
+    /* } */
+
+    /* print(res.contains(pd.map { (key, val) in (key, val) })) */
+    /* print(res.contains()) */
+
     /* print(res) */
     /* print(res) */
     /* SW.reset() */
@@ -379,17 +420,6 @@ public class PredicateTransition<T: Equatable> {
     for (e1, e2) in self.conditions {
       results = results.filter { binding in
         toValue(e1, binding) == toValue(e2, binding)
-          /* == */
-          /* switch e1 { */
-          /* case .value(let v): */
-          /*   return v */
-          /* case .str(let s): */
-          /*   return try! interpreter.eval(string:e2, replace:binding as! Dictionary<String, Value>) */
-          /* } */
-
-          /* (try! interpreter.eval( */
-          /*     string:e1, replace:binding as! Dictionary<String, Value> */
-          /*   )) == (try! interpreter.eval(string:e2, replace:binding as! Dictionary<String, Value>)) */
       }
     }
 
