@@ -39,7 +39,7 @@ extension MFDDFactory {
   ) -> MFDD<Key, Value>.Pointer {
     var cache: [TupleWrapper: MFDD<Key, Value>.Pointer] = [:]
 
-    if pointer == zeroPointer || pointer == onePointer {
+    if pointer == zero.pointer || pointer == one.pointer {
       return pointer
     }
 
@@ -67,7 +67,7 @@ extension MFDDFactory {
             .filter { key, _ in key != val }
             .map { key, ptr in (key, removeSameAux(ptr, newC, key)) }
         ),
-        skip: zeroPointer
+        skip: zero.pointer
       )
 
       cache[cacheKey] = results
@@ -83,13 +83,13 @@ extension MFDDFactory {
   ) -> MFDD<Key, Value>.Pointer {
     var cache: [[MFDD<Key, Value>.Pointer]: MFDD<Key, Value>.Pointer] = [:]
 
-    if lhs == zeroPointer || rhs == zeroPointer {
-      return zeroPointer
+    if lhs == zero.pointer || rhs == zero.pointer {
+      return zero.pointer
     }
 
-    if lhs == onePointer {
+    if lhs == one.pointer {
       return rhs
-    } else if rhs == onePointer {
+    } else if rhs == one.pointer {
       return lhs
     }
 
@@ -106,7 +106,7 @@ extension MFDDFactory {
     let result = node(
       key: lhs.pointee.key,
       take: lhs.pointee.take.mapValues { fusion($0, rhs) },
-      skip: zeroPointer
+      skip: zero.pointer
     )
 
     cache[cacheKey] = result

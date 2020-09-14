@@ -54,7 +54,7 @@ extension AlpineDDFactory {
                   return (val, guardFilterAux(ptr, bindingNew))
                 }
             ),
-            skip: zeroPointer
+            skip: zero.pointer
           )
         }
         // filtrer
@@ -70,7 +70,7 @@ extension AlpineDDFactory {
                   interpreter.eval(predicate: e2, binding: bindingNew)
               }
           ),
-          skip: zeroPointer
+          skip: zero.pointer
         )
       }
 
@@ -79,11 +79,11 @@ extension AlpineDDFactory {
         take: pointer.pointee.take.mapValues {
           guardFilterAux($0, binding)
         },
-        skip: zeroPointer
+        skip: zero.pointer
       )
       return result
       /*     guardFilterAux($0, binding) */
-      /*   }, skip:zeroPointer */
+      /*   }, skip:zero.pointer */
       /* ) */
       /* return result */
     }
