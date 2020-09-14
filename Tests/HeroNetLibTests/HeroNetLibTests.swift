@@ -1,35 +1,33 @@
-import XCTest
+import AST
+import DDKit
 import HeroNetLib
 import Interpreter
 import Parser
-import AST
 import Sema
-import DDKit
+import XCTest
 
 import Foundation
 
 final class HeroNetLibTests: XCTestCase {
+  static var allTests = [("testExample", testExample)]
+
   func testExample() {
     do {
       var module: String = """
-      func add(_ x: Int, _ y: Int) -> Int ::
-        x + y
+      func lt (_ a: Int, _ b: Int) -> Bool ::
+        a < b
 
-      func sub(_ x: Int, _ y: Int) -> Int ::
-        x - y
-
-      func mul(_ x: Int, _ y: Int) -> Int ::
-        x * y
-
-      func curry(_ x: Int, op: (Int, Int) -> Int) -> (Int) -> Int ::
-        func partialApply(_ y: Int) -> Int ::
-          op(x,y);
+      func gt (_ a: Int, _ b: Int) -> Bool ::
+        a > b
       """
 
-      var interpreter = Interpreter(debug:false)
-      try! interpreter.loadModule(fromString:module)
-
-      let m = try! interpreter.eval(string:"add(1, 2)")
+      /* var interpreter = Interpreter(debug) */
+      /* try! interpreter.loadModule(fromString: module) */
+      /*  */
+      /* let n = try! interpreter.eval(string: "@x", replace: ["@x": m]) */
+      /* print(m) */
+      /* print(n) */
+      /* print(n == m) */
       /* let n = try! interpreter.eval(string:"operationCurry(@x, op: add)", replace:["@x": m]) */
       /* let q = try! interpreter.eval(string:"operationCurry(2, op: mul)") */
       /* let s = try! interpreter.eval(string:"@g(@f(@f(@g(7) - @f(10))))", replace:["@f": n, "@g": q]) */
@@ -39,35 +37,89 @@ final class HeroNetLibTests: XCTestCase {
         "transition": [
           {
             "pre": {
-              "p1": [ "a", "c", "e" ],
-              "p2": [ "b", "d"  ]
+              "p1": [ "a", "b", "c", "d" ],
             },
             "post": {
-              "p2": [ "f" ],
-              "p3": [ "f(x,y)" ],
-              "p4": [ "curry(x, op: f)" ]
+              "p2": [  ],
+              "p3": [ ],
+              "p4": [  ]
             },
             "condition": [
-              {
-                "x % 2": false,
-                "1": true
-              },
-              {
-                "f(x,y) % 2": false,
-                "0": true
-              }
+              [
+                "a % 6",
+                "b"
+              ],
+              [
+                "lt(b, 4)",
+                "true"
+              ],
+              [
+                "gt(c, b * 2)",
+                "true" 
+              ],
+              [
+                "lt(d + b, a * 2)",
+                "true"
+              ],
+              [
+                "lt(a, 10)",
+                "true"
+              ],
+              [
+                "lt(b, 10)",
+                "true"
+              ],
+              [
+                "lt(c, 10)",
+                "true"
+              ],
+              [
+                "lt(d, 10)",
+                "true"
+              ]
             ]
           },
         ],
-        
+
         "marking": {
-          "p1": [ "0", "1", "2", "3", "4" ],
-          "p2": [ "add", "sub", "mul" ],
+          "p1": [],
+          "p2": [],
           "p3": [],
           "p4": []
         }
       }
       """
+      /* let JSON = """ */
+      /* { */
+      /*   "transition": [ */
+      /*     { */
+      /*       "pre": { */
+      /*         "p1": [ "x", "y" ], */
+      /*         "p2": [ "f"  ] */
+      /*       }, */
+      /*       "post": { */
+      /*         "p1": [ "g(z, z)" ], */
+      /*         "p2": [ "f" ], */
+      /*         "p3": [ "f(x,y) + z" ], */
+      /*         "p4": [ "curry(x, op: f)" ] */
+      /*       }, */
+      /*       "condition": [ */
+      /*         { */
+      /*           "x % 2", */
+      /*           "1" */
+      /*         } */
+      /*       ] */
+      /*     }, */
+      /*   ], */
+      /*  */
+      /*   "marking": { */
+      /*     "p1": [ ], */
+      /*     "p2": [ "add", "sub", "mul", "div" ], */
+      /*     "p3": [], */
+      /*     "p4": [] */
+      /*   } */
+      /* } */
+      /* """ */
       /* { */
       /*   "pre": { */
       /*     "p3": [ "a", "b" ], */
@@ -80,9 +132,13 @@ final class HeroNetLibTests: XCTestCase {
       /* } */
       /* "p1": [ "0", "1", "2", "3", "4", "5", "6" ], */
 
-      var an = AlpineNet(module:module, json:JSON)
-
-      an.createNet()
+      for i in 5 ... 6 {
+        var an = AlpineNet(module: module, json: JSON)
+        an.initialMarking["p1"] = [Int](1 ... i)
+          .map { ValueOrdered(try! an.interpreter.eval(string: String($0))) }
+        /* an.initialMarking["p1"]!.forEach { print($0.id, $0.value) } */
+        an.createNet()
+      }
 
       /* try! String(contentsOfFile:path!, encoding:.utf8) : source! */
 
@@ -114,6 +170,4 @@ final class HeroNetLibTests: XCTestCase {
       /* ]) */
     }
   }
-
-  static var allTests = [("testExample", testExample)]
 }

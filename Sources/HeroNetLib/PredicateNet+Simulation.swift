@@ -1,23 +1,29 @@
 import Interpreter
 
-public struct PredicateNetSimulation<T: Equatable>: Sequence {
-  public init(net: PredicateNet<T>, initialMarking: PredicateNet<T>.MarkingType?) {
+public struct PredicateNetSimulation: Sequence {
+  // Lifecycle
+
+  public init(net: PredicateNet, initialMarking: PredicateNet.MarkingType?) {
     self.net = net
     self.initialMarking = initialMarking
   }
 
-  public func makeIterator() -> AnyIterator<(
-    PredicateNet<T>.MarkingType,
-    PredicateTransition<T>.Binding?,
-    [String: Value]
-  )> {
-    var m = self.initialMarking
-    var b: [PredicateTransition<T>.Binding] = []
+  // Public
+
+  public func makeIterator()
+    -> AnyIterator<(
+      PredicateNet.MarkingType,
+      PredicateTransition.Binding?,
+      [String: Value]
+    )>
+  {
+    var m = initialMarking
+    var b: [PredicateTransition.Binding] = []
 
     return AnyIterator {
       if let n = m {
         var newTokens: [[String: Value]] = []
-        (m, b, newTokens) = self.net.simulate(steps:1, from:n)
+        (m, b, newTokens) = self.net.simulate(steps: 1, from: n)
         let bindingRet = (b.count == 1) ? b[0] : nil
         let newRet = (newTokens.count == 1) ? newTokens[0] : [:]
         return (m!, bindingRet, newRet)
@@ -27,14 +33,14 @@ public struct PredicateNetSimulation<T: Equatable>: Sequence {
     }
   }
 
-  let net: PredicateNet<T>
-  let initialMarking: PredicateNet<T>.MarkingType?
+  // Internal
+
+  let net: PredicateNet
+  let initialMarking: PredicateNet.MarkingType?
 }
 
 extension PredicateNet {
-
-  public func simulation(from marking: MarkingType?) -> PredicateNetSimulation<T> {
-    return PredicateNetSimulation(net:self, initialMarking:marking)
+  public func simulation(from marking: MarkingType?) -> PredicateNetSimulation {
+    PredicateNetSimulation(net: self, initialMarking: marking)
   }
-
 }
