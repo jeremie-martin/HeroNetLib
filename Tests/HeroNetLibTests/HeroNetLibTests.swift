@@ -132,10 +132,10 @@ final class HeroNetLibTests: XCTestCase {
       /* } */
       /* "p1": [ "0", "1", "2", "3", "4", "5", "6" ], */
 
-      for i in 5 ... 6 {
+      for i in 15 ... 16 {
         var an = AlpineNet(module: module, json: JSON)
         an.initialMarking["p1"] = [Int](1 ... i)
-          .map { ValueOrdered(try! an.interpreter.eval(string: String($0))) }
+          .map { ValueOrd(try! an.interpreter.eval(string: String($0))) }
         /* an.initialMarking["p1"]!.forEach { print($0.id, $0.value) } */
         an.createNet()
       }

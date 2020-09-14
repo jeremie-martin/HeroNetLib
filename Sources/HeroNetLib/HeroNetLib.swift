@@ -5,8 +5,6 @@ import Parser
 import PetriKit
 import SwiftProductGenerator
 
-public typealias ADD = MFDD<VariableWrapper, ValueOrdered>
-
 public extension Interpreter {
   func eval(predicate: PredicateLabel, binding: [String: Value]) -> Value {
     switch predicate {
@@ -19,41 +17,6 @@ public extension Interpreter {
       )
     }
   }
-}
-
-public class ValueOrdered: Hashable, Equatable, CustomStringConvertible {
-  // Lifecycle
-
-  public init(_ val: Value) {
-    value = val
-    id = ValueOrdered.nextID
-    ValueOrdered.nextID += 1
-  }
-
-  public init(_ val: ValueOrdered) {
-    value = val.value
-    id = ValueOrdered.nextID
-    ValueOrdered.nextID += 1
-  }
-
-  // Public
-
-  public let id: Int
-  public let value: Value
-
-  public var description: String { "\(value) (\(id))" }
-
-  public static func == (lhs: ValueOrdered, rhs: ValueOrdered) -> Bool {
-    lhs.id == rhs.id
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(id)
-  }
-
-  // Private
-
-  private static var nextID: Int = 0
 }
 
 public func setSeed(seed _: UInt = 5323) {
@@ -69,8 +32,8 @@ public struct PredicateNet {
     initialMarking: MarkingType? = nil,
     seed: UInt = 5323,
     interpreter: Interpreter,
-    factory: MFDDFactory<VariableWrapper, ValueOrdered>,
-    morphisms: MFDDMorphismFactory<VariableWrapper, ValueOrdered>
+    factory: MFDDFactory<VariableOrd, ValueOrd>,
+    morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd>
   ) {
     setSeed(seed: seed)
 
@@ -86,7 +49,7 @@ public struct PredicateNet {
   // Public
 
   public typealias PlaceType = String
-  public typealias MarkingType = [PlaceType: [ValueOrdered]]
+  public typealias MarkingType = [PlaceType: [ValueOrd]]
 
   public unowned let interpreter: Interpreter
 
@@ -121,7 +84,7 @@ public struct PredicateNet {
     // For as many steps are we were instructed to simulate ...
     for _ in 0 ..< steps {
       // Generate for each transition the set of fireable bindings.
-      var fireable: [PredicateTransition: ADD] = [:]
+      var fireable: [PredicateTransition: AlpineDD] = [:]
       for transition in transitions {
         // Notice how we ignore non-fireable transitions.
         let bindings = transition.fireableBingings(from: m)
@@ -152,22 +115,22 @@ public struct PredicateNet {
 
   // Internal
 
-  unowned let factory: MFDDFactory<VariableWrapper, ValueOrdered>
+  unowned let factory: MFDDFactory<VariableOrd, ValueOrd>
 
-  unowned let morphisms: MFDDMorphismFactory<VariableWrapper, ValueOrdered>
+  unowned let morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd>
 }
 
-/* public struct VariableWrapper: Hashable, Comparable, CustomStringConvertible { */
+/* public struct VariableOrd: Hashable, Comparable, CustomStringConvertible { */
 /*   public let value: String */
-/*   public let index: Int */
+/*   public let id: Int */
 /*  */
 /*   public var description: String { "\(value) (\(index))" } */
 /*  */
-/*   public static func == (lhs: VariableWrapper, rhs: VariableWrapper) -> Bool { */
+/*   public static func == (lhs: VariableOrd, rhs: VariableOrd) -> Bool { */
 /*     lhs.index == rhs.index */
 /*   } */
 /*  */
-/*   public static func < (lhs: VariableWrapper, rhs: VariableWrapper) -> Bool { */
+/*   public static func < (lhs: VariableOrd, rhs: VariableOrd) -> Bool { */
 /*     lhs.index < rhs.index */
 /*   } */
 /*  */
@@ -175,25 +138,6 @@ public struct PredicateNet {
 /*     hasher.combine(index) */
 /*   } */
 /* } */
-
-public struct VariableWrapper: Hashable, Comparable, CustomStringConvertible {
-  public let value: String
-  public let index: Int
-
-  public var description: String { "\(value) (\(index))" }
-
-  public static func == (lhs: VariableWrapper, rhs: VariableWrapper) -> Bool {
-    lhs.value == rhs.value
-  }
-
-  public static func < (lhs: VariableWrapper, rhs: VariableWrapper) -> Bool {
-    lhs.value < rhs.value
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(value)
-  }
-}
 
 /// Type of variables on arc labels.
 public typealias Variable = String
@@ -207,8 +151,8 @@ public class PredicateTransition {
     postconditions: Set<PredicateArc> = [],
     conditions: [(PredicateLabel, PredicateLabel, [Variable])] = [],
     interpreter: Interpreter,
-    factory: MFDDFactory<VariableWrapper, ValueOrdered>,
-    morphisms: MFDDMorphismFactory<VariableWrapper, ValueOrdered>
+    factory: MFDDFactory<VariableOrd, ValueOrd>,
+    morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd>
   ) {
     var inboundPlaces: Set<PredicateNet.PlaceType> = []
     var inboundVariables: Set<Variable> = []
@@ -259,7 +203,7 @@ public class PredicateTransition {
           e1,
           e2,
           variables.map { name in
-            VariableWrapper(value: name, index: order.index(of: name)!)
+            VariableOrd(value: name, id: order.index(of: name)!)
           }.removeDuplicates().sorted()
         )
       }
@@ -280,9 +224,9 @@ public class PredicateTransition {
     } {
       tmp.removeValue(forKey: e.key)
       inboundVariablesCondArr.append(
-        (e.key, e.value.map { name -> VariableWrapper in
+        (e.key, e.value.map { name -> VariableOrd in
           if !order.contains(name) { order.append(name) }
-          return VariableWrapper(value: name, index: order.index(of: name)!)
+          return VariableOrd(value: name, id: order.index(of: name)!)
         }.sorted())
       )
     }
@@ -295,12 +239,12 @@ public class PredicateTransition {
   // Public
 
   /// Type for transition bindings.
-  public typealias Binding = [VariableWrapper: ValueOrdered]
+  public typealias Binding = [VariableOrd: ValueOrd]
 
   public unowned var interpreter: Interpreter
 
-  public var inboundVariablesCondArr: [(PredicateNet.PlaceType, [VariableWrapper])] = []
-  public var inboundVariablesCond: [PredicateNet.PlaceType: [VariableWrapper]] = [:]
+  public var inboundVariablesCondArr: [(PredicateNet.PlaceType, [VariableOrd])] = []
+  public var inboundVariablesCond: [PredicateNet.PlaceType: [VariableOrd]] = [:]
 
   public var varInfos: [String: Value]
 
@@ -311,7 +255,7 @@ public class PredicateTransition {
   public let postconditions: Set<PredicateArc>
 
   public let conditions: [(PredicateLabel, PredicateLabel, [String])]
-  public let conditionsOrdered: [(PredicateLabel, PredicateLabel, [VariableWrapper])]
+  public let conditionsOrdered: [(PredicateLabel, PredicateLabel, [VariableOrd])]
 
   /// Compute all possible bindings that make the transition fireable from the given marking.
   ///
@@ -345,13 +289,13 @@ public class PredicateTransition {
   ///   of `p1`, we'll reject the binding and move to the next arrangement.
   public func fireableBingings(
     from marking: PredicateNet.MarkingType
-  ) -> ADD {
+  ) -> AlpineDD {
     var SWD = Stopwatch()
     /* let markingValue = marking.mapValues { $0.map { $0.value } } // For brute-force */
     SWD.reset()
 
     var results = inboundVariablesCondArr.reduce(factory.one) { acc, v in
-      ADD(
+      AlpineDD(
         pointer: factory
           .fusion(
             acc.pointer,
@@ -444,7 +388,7 @@ public class PredicateTransition {
     /*   return permutations */
     /* } */
 
-    func prod(keys: [VariableWrapper], values: [ValueOrdered]) -> ADD {
+    func prod(keys: [VariableOrd], values: [ValueOrd]) -> AlpineDD {
       /* let domainsFlat = domains.flatMap { (keys, values) in keys.flatMap { ($0, values) } }.sorted { */
       /*   $0.0 < $1.0 */
       /* } */
@@ -469,8 +413,9 @@ public class PredicateTransition {
 
       var perms = dd.last!
       for IND in (0 ... dd.count - 2).reversed() {
-        func test(this _: ADD.Inductive, pointer: ADD.Pointer) -> ADD.Inductive.Result {
-          ADD.Inductive.Result(
+        func test(this _: AlpineDD.Inductive, pointer: AlpineDD.Pointer) -> AlpineDD
+          .Inductive.Result {
+          AlpineDD.Inductive.Result(
             take: Dictionary(
               uniqueKeysWithValues: pointer.pointee.take.map { val, _ in
                 (
@@ -522,76 +467,16 @@ public class PredicateTransition {
     /* print("second", mftime.humanFormat) */
     /* print(res2.count, factory.createdCount) */
     /* SW.reset() */
-    /* var mdr = ADD(pointer:factory.fusion(res.pointer, res2.pointer), factory:factory) */
+    /* var mdr = AlpineDD(pointer:factory.fusion(res.pointer, res2.pointer), factory:factory) */
     /* mftime = SW.elapsed */
     /* print("fusion", mftime.humanFormat) */
     /* print(mdr.count, factory.createdCount) */
     /* var res2 = prod(domains:[["c"]: [10, 11, 12]]) */
 
-    func guardFilter(
-      _ pointer: ADD.Pointer,
-      _ e1: PredicateLabel,
-      _ e2: PredicateLabel,
-      _ vars: [VariableWrapper],
-      interpreter: Interpreter
-    ) -> ADD.Pointer {
-      func guardFilterAux(_ pointer: ADD.Pointer, _ binding: [String: Value]) -> ADD
-        .Pointer {
-        if factory.isTerminal(pointer) || pointer.pointee.key > vars.last! {
-          return pointer
-        }
-
-        if vars.contains(pointer.pointee.key) {
-          if binding.count + 1 < vars.count {
-            return factory.node(
-              key: pointer.pointee.key,
-              take: Dictionary(
-                uniqueKeysWithValues: pointer.pointee.take
-                  .map { val, ptr in
-                    var bindingNew = binding
-                    bindingNew[pointer.pointee.key.value] = val.value
-                    return (val, guardFilterAux(ptr, bindingNew))
-                  }
-              ),
-              skip: factory.zeroPointer
-            )
-          }
-          // filtrer
-          return factory.node(
-            key: pointer.pointee.key,
-            take: Dictionary(
-              uniqueKeysWithValues: pointer.pointee.take
-                .filter { val, _ in
-                  var bindingNew = binding
-                  bindingNew[pointer.pointee.key.value] = val.value
-
-                  return interpreter.eval(predicate: e1, binding: bindingNew) ==
-                    interpreter.eval(predicate: e2, binding: bindingNew)
-                }
-            ),
-            skip: factory.zeroPointer
-          )
-        }
-
-        let result = factory.node(
-          key: pointer.pointee.key,
-          take: pointer.pointee.take.mapValues {
-            guardFilterAux($0, binding)
-          },
-          skip: factory.zeroPointer
-        )
-        return result
-        /*     guardFilterAux($0, binding) */
-        /*   }, skip:factory.zeroPointer */
-        /* ) */
-        /* return result */
-      }
-      return guardFilterAux(pointer, [:])
-    }
     /* return guardFilterAux(pointer, [:]) */
 
     /* SW.reset() */
-    /* let mdrF = ADD(pointer:guardFilter(mdr.pointer), factory:factory) */
+    /* let mdrF = AlpineDD(pointer:guardFilter(mdr.pointer), factory:factory) */
     /* mftime = SW.elapsed */
     /* print(mdr.count) */
     /* print("filter", mftime.humanFormat) */
@@ -643,9 +528,11 @@ public class PredicateTransition {
     SWD.reset()
 
     for (e1, e2, vars) in conditionsOrdered {
-      results = ADD(
-        pointer: guardFilter(results.pointer, e1, e2, vars, interpreter: interpreter),
-        factory: factory
+      results = results.guardFilter(
+        e1: e1,
+        e2: e2,
+        vars: vars,
+        interpreter: interpreter
       )
     }
 
@@ -697,26 +584,11 @@ public class PredicateTransition {
     // Apply the postconditions.
     for arc in postconditions {
       for item in arc.label {
-        switch item {
-        case .str(let v):
-          let m = interpreter.eval(predicate: item, binding: Dictionary(
-            uniqueKeysWithValues: binding.map {
-              variable, val in (variable.value, val.value)
-            }
-          ))
-          /* let m = try! interpreter.eval( */
-          /*   string: v, */
-          /*   replace: Dictionary( */
-          /*     uniqueKeysWithValues: binding */
-          /*       .map { variable, val in (variable.value, val.value) } */
-          /*   ) */
-          /* ) */
-          result[arc.place]!.append(ValueOrdered(m))
-          new[v] = m
-        case .value(let f):
-          /* result[arc.place]!.append(f(binding)) */
-          break
-        }
+        let m = interpreter.eval(predicate: item, binding: Dictionary(
+          uniqueKeysWithValues: binding.map {
+            variable, val in (variable.value, val.value)
+          }
+        ))
       }
     }
 
@@ -725,9 +597,9 @@ public class PredicateTransition {
 
   // Internal
 
-  unowned let factory: MFDDFactory<VariableWrapper, ValueOrdered>
+  unowned let factory: MFDDFactory<VariableOrd, ValueOrd>
 
-  unowned var morphisms: MFDDMorphismFactory<VariableWrapper, ValueOrdered>
+  unowned var morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd>
 
   // Private
 

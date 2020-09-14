@@ -59,9 +59,9 @@ public struct AlpineNet {
       }
 
       heroParse.marking.forEach {
-        var values: [ValueOrdered] = []
+        var values: [ValueOrd] = []
         $0.value.forEach {
-          values.append(ValueOrdered(try! interpreter.eval(string: $0)))
+          values.append(ValueOrd(try! interpreter.eval(string: $0)))
         }
         self.initialMarking[$0.key] = values
       }
@@ -169,9 +169,9 @@ public struct AlpineNet {
   var places: Set<String>
   var transitions: Set<PredicateTransition>
 
-  let factory = MFDDFactory<VariableWrapper, ValueOrdered>(bucketCapacity: 1024 * 128)
+  let factory = MFDDFactory<VariableOrd, ValueOrd>(bucketCapacity: 1024 * 128)
 
-  var morphisms: MFDDMorphismFactory<VariableWrapper, ValueOrdered> {
+  var morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd> {
     factory.morphisms
   }
 

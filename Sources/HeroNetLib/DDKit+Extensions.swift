@@ -1,5 +1,4 @@
 import DDKit
-import Foundation
 
 extension MFDD {
   public func removeSame(
