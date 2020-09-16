@@ -1,0 +1,60 @@
+{
+  "module": "Example/lotsc.alpine",
+  "transition": [
+    {
+      "pre": {
+        "p1": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ]
+      },
+      "post": {
+        "p2": [],
+        "p3": [],
+        "p4": []
+      },
+      "condition": [
+        [
+          "a % 6",
+          "b"
+        ],
+        [
+          "lt(b, 4)",
+          "true"
+        ],
+        [
+          "gt(c, b * 2)",
+          "true"
+        ],
+        [
+          "lt(d + b, a * 2)",
+          "true"
+        ],
+        [
+          "lt(a, 10)",
+          "true"
+        ],
+        [
+          "lt(b, 10)",
+          "true"
+        ],
+        [
+          "lt(c, 10)",
+          "true"
+        ],
+        [
+          "lt(d, 10)",
+          "true"
+        ]
+      ]
+    }
+  ],
+  "marking": {
+    "p1": [],
+    "p2": [],
+    "p3": [],
+    "p4": []
+  }
+}

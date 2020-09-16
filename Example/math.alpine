@@ -1,0 +1,12 @@
+func add(_ x: Int, _ y: Int) -> Int ::
+  x + y
+
+func sub(_ x: Int, _ y: Int) -> Int ::
+  x - y
+
+func div(_ x: Int, _ y: Int) -> Int ::
+  x / y
+
+func mul(_ x: Int, _ y: Int) -> Int ::
+  x * y
+

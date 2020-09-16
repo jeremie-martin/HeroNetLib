@@ -11,6 +11,7 @@ public struct TransitionJSON: Decodable {
 }
 
 public struct HeroJSON: Decodable {
+  let module: String
   let transition: [TransitionJSON]
   let marking: [String: [String]]
 }
@@ -29,12 +30,21 @@ extension Array where Element: Equatable {
   }
 }
 
-public struct AlpineNet {
+public class AlpineNet {
   // Lifecycle
 
-  public init(module: String, json: String? = nil) {
+  public init(json: String) {
     interpreter = Interpreter()
-    try! interpreter.loadModule(fromString: module)
+
+    factory = MFDDFactory<VariableOrd, ValueOrd>(bucketCapacity: 1024 * 64)
+    morphisms = factory.morphisms
+
+    let jsonData = json.data(using: .utf8)!
+    let heroParse: HeroJSON = try! JSONDecoder()
+      .decode(HeroJSON.self, from: jsonData)
+
+    let source = try! String(contentsOfFile: heroParse.module, encoding: .utf8)
+    try! interpreter.loadModule(fromString: source)
     moduleFuncNames = Set(
       interpreter.astContext.modules[0].statements.compactMap { node -> String? in
         switch node {
@@ -49,22 +59,16 @@ public struct AlpineNet {
     )
     places = []
     transitions = []
+    heroParse.transition.forEach {
+      self.addTransition(pre: $0.pre, post: $0.post, cond: $0.condition)
+    }
 
-    if let jsonData = json?.data(using: .utf8)! {
-      let heroParse: HeroJSON = try! JSONDecoder()
-        .decode(HeroJSON.self, from: jsonData)
-
-      heroParse.transition.forEach {
-        self.addTransition(pre: $0.pre, post: $0.post, cond: $0.condition)
+    heroParse.marking.forEach {
+      var values: [ValueOrd] = []
+      $0.value.forEach {
+        values.append(ValueOrd(try! interpreter.eval(string: $0)))
       }
-
-      heroParse.marking.forEach {
-        var values: [ValueOrd] = []
-        $0.value.forEach {
-          values.append(ValueOrd(try! interpreter.eval(string: $0)))
-        }
-        self.initialMarking[$0.key] = values
-      }
+      self.initialMarking[$0.key] = values
     }
   }
 
@@ -78,7 +82,7 @@ public struct AlpineNet {
      Input : pre = ["p1": ["x", "y"], "p2": ["f"]]
      Output: [PredicateArc(place:"p1", label:[.str("x"), .str("y")], PredicateArc(place:"p2", label:[.str("f")]]
    */
-  public mutating func addTransition(
+  public func addTransition(
     pre: [String: [String]],
     post: [String: [String]],
     cond: [[String]]
@@ -153,7 +157,7 @@ public struct AlpineNet {
 
         print("New marking")
         m.0.forEach {
-          print("  - \($0.key): \($0.value.map { ($0.id, $0.value) })")
+          print("  - \($0.key): \($0.value.map { $0.value })")
         }
         print()
       } else {
@@ -169,11 +173,9 @@ public struct AlpineNet {
   var places: Set<String>
   var transitions: Set<PredicateTransition>
 
-  let factory = MFDDFactory<VariableOrd, ValueOrd>(bucketCapacity: 1024 * 128)
+  let factory: MFDDFactory<VariableOrd, ValueOrd>
 
-  var morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd> {
-    factory.morphisms
-  }
+  var morphisms: MFDDMorphismFactory<VariableOrd, ValueOrd>
 
   func parseVars(source: String) -> [String] {
     let tokens = try! Lexer(source: source)

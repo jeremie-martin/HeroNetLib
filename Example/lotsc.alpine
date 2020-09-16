@@ -1,0 +1,5 @@
+func lt (_ a: Int, _ b: Int) -> Bool ::
+  a < b
+
+func gt (_ a: Int, _ b: Int) -> Bool ::
+  a > b

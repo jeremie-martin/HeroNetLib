@@ -1,0 +1,29 @@
+type Boolean :: #True or #False
+type Dummy :: #foo or #bar
+
+type AllTypes :: Boolean or Dummy
+type TypeAnswer :: #ok
+
+func arity0(_ x: AllTypes) -> TypeAnswer :: #ok
+func arity1(_ x: (AllTypes) -> AllTypes) -> TypeAnswer :: #ok
+func arity2(_ x: (AllTypes, AllTypes) -> AllTypes) -> TypeAnswer :: #ok
+
+func myNot(_ bool: Boolean) -> Boolean ::
+// Not of a boolean
+  match(bool)
+    with #True ::
+      #False
+    with #False ::
+      #True
+
+func myAnd(_ bool1: Boolean, _ bool2: Boolean) -> Boolean ::
+// And between two booleans (bool1 and bool2)
+  match(bool1, bool2)
+    with (#True, #True) :: #True
+    with (let x, let y) :: #False
+
+func myOr(_ bool1: Boolean, _ bool2: Boolean) -> Boolean ::
+// Or between two booleans (bool1 or bool2)
+  match(bool1, bool2)
+    with (#False, #False) :: #False
+    with (let x, let y) :: #True

@@ -17,6 +17,21 @@ public extension Interpreter {
       )
     }
   }
+
+  func evalVerbose(
+    predicate: PredicateLabel,
+    binding: [String: Value]
+  ) -> (Value, String) {
+    switch predicate {
+    case .value(let v):
+      return (v, v.description)
+    case .str(let src):
+      return (try! eval(
+        string: src,
+        replace: binding
+      ), src)
+    }
+  }
 }
 
 public func setSeed(seed _: UInt = 5323) {
@@ -101,9 +116,9 @@ public struct PredicateNet {
       /* let binding = PetriKit.Random.choose(from:bindings) */
       let binding = bindings.randomElement()!
       bindingChosen.append(binding)
-      var new: [String: Value] = [:]
-      (m, new) = t.fire(from: m, with: binding)!
-      newTokens.append(new)
+      let news: [String: Value]
+      (m, news) = t.fire(from: m, with: binding)!
+      newTokens.append(news)
     }
 
     /* let end = DispatchTime.now()   // <<<<<<<<<<   end time */
@@ -157,8 +172,6 @@ public class PredicateTransition {
     var inboundPlaces: Set<PredicateNet.PlaceType> = []
     var inboundVariables: Set<Variable> = []
 
-    varInfos = [:]
-
     for arc in preconditions {
       // Make sure the a doesn't appear twice as a precondition.
       guard !inboundPlaces.contains(arc.place) else {
@@ -185,7 +198,7 @@ public class PredicateTransition {
     self.factory = factory
     self.morphisms = morphisms
 
-    // Conditions with lots of variables are at the top of the MFDD
+    // Conditions with few variables are at the top of the MFDD
     let conds = conditions.map { ($0.0, $0.1, $0.2.removeDuplicates()) }
     var order = conds
       .sorted { $0.2.count < $1.2.count }
@@ -195,15 +208,15 @@ public class PredicateTransition {
     // TODO: This code is horrendous
     conditionsOrdered = conds
       .sorted { a, b -> Bool in
-        a.2.map { order.lastIndex(of: $0)! }.max()! + a.2.count < b.2
-          .map { order.lastIndex(of: $0)! }.max()! + b.2.count
+        a.2.map { order.firstIndex(of: $0)! }.min()! < b.2
+          .map { order.firstIndex(of: $0)! }.min()!
       }
       .map { e1, e2, variables in
         (
           e1,
           e2,
           variables.map { name in
-            VariableOrd(value: name, id: order.index(of: name)!)
+            VariableOrd(value: name, id: order.firstIndex(of: name)!)
           }.removeDuplicates().sorted()
         )
       }
@@ -211,6 +224,7 @@ public class PredicateTransition {
     var tmp = self.inboundVariables()
     let varN = tmp.reduce(0) { acc, e in acc + e.value.count }
 
+    // Hacky (and ugly) heuristic for variable order
     func minDist(order: [String], vars: [String], n: Int = 0) -> Int {
       if order.isEmpty { return (2 * varN - vars.count) * (2 * varN - vars.count) }
       if vars.contains(order.last!) { return n * n }
@@ -226,7 +240,7 @@ public class PredicateTransition {
       inboundVariablesCondArr.append(
         (e.key, e.value.map { name -> VariableOrd in
           if !order.contains(name) { order.append(name) }
-          return VariableOrd(value: name, id: order.index(of: name)!)
+          return VariableOrd(value: name, id: order.firstIndex(of: name)!)
         }.sorted())
       )
     }
@@ -245,8 +259,6 @@ public class PredicateTransition {
 
   public var inboundVariablesCondArr: [(PredicateNet.PlaceType, [VariableOrd])] = []
   public var inboundVariablesCond: [PredicateNet.PlaceType: [VariableOrd]] = [:]
-
-  public var varInfos: [String: Value]
 
   /// The preconditions of the transition.
   public let preconditions: Set<PredicateArc>
@@ -329,7 +341,7 @@ public class PredicateTransition {
     /*     for variable in variables[place]! { */
     /*       if let value = binding[variable] { */
     /*         // If the variable was already bound, try to match it with another token. */
-    /*         if let index = remainingTokens.index(of: value) { */
+    /*         if let index = remainingTokens.firstIndex(of: value) { */
     /*           remainingTokens.remove(at: index) */
     /*         } else { */
     /*           continue outer */
@@ -401,6 +413,15 @@ public class PredicateTransition {
         )
       }
 
+      /* keys.enumerated { i, key in conditionsOrdered.filter { _, _, vars in vars.count == 1 && vars.contains(key.value) }.forEach { */
+      /*     dd[i] = dd[i].guardFilter( */
+      /*       e1: e1, */
+      /*       e2: e2, */
+      /*       vars: vars, */
+      /*       interpreter: interpreter */
+      /*     ) */
+      /*   } */
+      /*  */
       if keys.count == 1 {
         return dd[0]
       }
@@ -413,8 +434,8 @@ public class PredicateTransition {
 
       var perms = dd.last!
       for IND in (0 ... dd.count - 2).reversed() {
-        func test(this _: AlpineDD.Inductive, pointer: AlpineDD.Pointer) -> AlpineDD
-          .Inductive.Result {
+        func test(this _: AlpineDD.Inductive, pointer: AlpineDD.Pointer)
+          -> AlpineDD.Inductive.Result {
           AlpineDD.Inductive.Result(
             take: Dictionary(
               uniqueKeysWithValues: pointer.pointee.take.map { val, _ in
@@ -423,7 +444,7 @@ public class PredicateTransition {
                   morphisms
                     .constant(
                       perms
-                        .removeSame(val, valFlat, valFlat[pointer.pointee.key]!)
+                      /* .removeSame(val, valFlat, valFlat[pointer.pointee.key]!) */
                     ).apply(on:)
                 )
               }
@@ -444,85 +465,9 @@ public class PredicateTransition {
         /* ) */
       }
 
-      /* perms = perms.removeSame(domains.first!.value[0], valFlat, 5) */
+      perms = perms.removeSame(n: values.count, k: keys.count)
       return perms
     }
-
-    /* let SSS = ["a", "b", "c", "p", "q"] */
-    /* let ori: [Value] = Array(1...9) */
-    /* let take = 100 */
-    /* var SW = Stopwatch() */
-    /* var mftime = SW.elapsed */
-    /* SW.reset() */
-    /* [> var res = prod(domains:LMAO) <] */
-    /* [> print(self.preconditions.first!.label[0]) <] */
-    /* [> var res = prod(domains:[SSS: ori, ["a", "x", "y"]: [4, 5, 112, 113]]) <] */
-    /* var res = prod(keys:SSS, values:ori) */
-    /* mftime = SW.elapsed */
-    /* print("first", mftime.humanFormat) */
-    /* print(res.count, factory.createdCount) */
-    /* SW.reset() */
-    /* var res2 = prod(keys:["d", "z", "m", "o", "i"], values:[10, 11, 12, 1222, 1333, 1555]) */
-    /* mftime = SW.elapsed */
-    /* print("second", mftime.humanFormat) */
-    /* print(res2.count, factory.createdCount) */
-    /* SW.reset() */
-    /* var mdr = AlpineDD(pointer:factory.fusion(res.pointer, res2.pointer), factory:factory) */
-    /* mftime = SW.elapsed */
-    /* print("fusion", mftime.humanFormat) */
-    /* print(mdr.count, factory.createdCount) */
-    /* var res2 = prod(domains:[["c"]: [10, 11, 12]]) */
-
-    /* return guardFilterAux(pointer, [:]) */
-
-    /* SW.reset() */
-    /* let mdrF = AlpineDD(pointer:guardFilter(mdr.pointer), factory:factory) */
-    /* mftime = SW.elapsed */
-    /* print(mdr.count) */
-    /* print("filter", mftime.humanFormat) */
-    /* print("filter", mftime.humanFormat) */
-    /*  */
-    /* print(mdrF.count) */
-    /* print(mdr.count) */
-    /* print(mdr) */
-    /* print(mdr.pointer.pointee) */
-    /* print(mdr) */
-
-    /* results.forEach { */
-    /*   if res.contains($0 as! Dictionary<String, Value>) == false { */
-    /*     print("riiiiiiiiiiiiiiiiip") */
-    /*   } */
-    /* } */
-    /* (res as! Dictionary<String, Value>).forEach { */
-    /*   if results.contains($0) == false { */
-    /*     print("ruuuuuuuuuuuuup") */
-    /*   } */
-    /* } */
-
-    /* let p = permutationsWithoutRepetitionFrom(ori, taking:4) */
-    /* let pd = p.map { Dictionary(uniqueKeysWithValues:zip(SSS, $0)) } */
-    /* let owo = factory.encode(family:pd) */
-    /* for x in pd { */
-    /*   if res.contains(x) == false { */
-    /*     print("ripppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp", x) */
-    /*   } */
-    /* } */
-    /* print(owo.count) */
-    /* print("le count", st.count) */
-    /* print(owo.count, res.count) */
-    /* for x in res { */
-    /*   print(x) */
-    /* } */
-
-    /* print(res.contains(pd.map { (key, val) in (key, val) })) */
-    /* print(res.contains()) */
-
-    /* print(res) */
-    /* print(res) */
-    /* SW.reset() */
-    /* print(res.count, factory.createdCount) */
-    /* [> print(res2.count, factory.createdCount) <] */
-    /* SW.reset() */
 
     // Filter out the bindings for which the transition's guards don't hold.
     SWD.reset()
@@ -554,7 +499,6 @@ public class PredicateTransition {
     /* print("base", mftimeD.humanFormat) */
     /* print(results.count) */
 
-    /* exit(0) */
     return results
   }
 
@@ -575,24 +519,26 @@ public class PredicateTransition {
       for variable in variables[arc.place]! {
         // Note that we can assume this search to be successful, because we know the
         // transition is fireable.
-        let index = result[arc.place]!.index(of: binding[variable]!)!
+        let index = result[arc.place]!.firstIndex(of: binding[variable]!)!
         result[arc.place]!.remove(at: index)
       }
     }
 
-    var new: [String: Value] = [:]
+    var newTokens: [String: Value] = [:]
     // Apply the postconditions.
     for arc in postconditions {
       for item in arc.label {
-        let m = interpreter.eval(predicate: item, binding: Dictionary(
+        let (m, label) = interpreter.evalVerbose(predicate: item, binding: Dictionary(
           uniqueKeysWithValues: binding.map {
             variable, val in (variable.value, val.value)
           }
         ))
+        result[arc.place]!.append(ValueOrd(m))
+        newTokens[label] = m
       }
     }
 
-    return (result, new)
+    return (result, newTokens)
   }
 
   // Internal
@@ -630,8 +576,9 @@ extension PredicateTransition: Hashable {
   // reference equality to make `PredicateTransition` conforms to `Hashable`. That's why we
   // declared it as a `class` rather than a `struct`.
 
-  public var hashValue: Int {
-    preconditions.hashValue ^ postconditions.hashValue
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(preconditions)
+    hasher.combine(postconditions)
   }
 
   public static func == (lhs: PredicateTransition, rhs: PredicateTransition) -> Bool {
@@ -672,12 +619,12 @@ public class PredicateArc: Hashable {
   public let place: PredicateNet.PlaceType
   public let label: [PredicateLabel]
 
-  public var hashValue: Int {
-    place.hashValue
-  }
-
   public static func == (lhs: PredicateArc, rhs: PredicateArc) -> Bool {
     lhs === rhs
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(place)
   }
 }
 

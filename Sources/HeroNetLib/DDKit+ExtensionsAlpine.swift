@@ -82,10 +82,6 @@ extension AlpineDDFactory {
         skip: zero.pointer
       )
       return result
-      /*     guardFilterAux($0, binding) */
-      /*   }, skip:zero.pointer */
-      /* ) */
-      /* return result */
     }
     return guardFilterAux(pointer, [:])
   }

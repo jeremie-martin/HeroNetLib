@@ -1,7 +1,17 @@
 import Dispatch
 
 public struct Stopwatch {
+  // Lifecycle
+
+  public init() {
+    startTime = DispatchTime.now()
+  }
+
+  // Public
+
   public struct TimeInterval: Comparable {
+    // Lifecycle
+
     public init(ns: UInt64) {
       self.ns = ns
     }
@@ -18,7 +28,10 @@ public struct Stopwatch {
       ns = UInt64(s * 1_000_000_000)
     }
 
+    // Public
+
     public let ns: UInt64
+
     public var μs: Double {
       Double(ns) / 1000
     }
@@ -51,18 +64,16 @@ public struct Stopwatch {
     }
   }
 
-  public init() {
-    startTime = DispatchTime.now()
+  public var elapsed: TimeInterval {
+    let nano = DispatchTime.now().uptimeNanoseconds - startTime.uptimeNanoseconds
+    return TimeInterval(ns: nano)
   }
 
   public mutating func reset() {
     startTime = DispatchTime.now()
   }
 
-  public var elapsed: TimeInterval {
-    let nano = DispatchTime.now().uptimeNanoseconds - startTime.uptimeNanoseconds
-    return TimeInterval(ns: nano)
-  }
+  // Private
 
   private var startTime: DispatchTime
 }

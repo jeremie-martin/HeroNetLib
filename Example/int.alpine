@@ -1,0 +1,16 @@
+type Nat :: #zero or #succ(Nat)
+
+func eq(_ nat1: Nat, _ nat2: Nat) -> Boolean ::
+// Equality between two numbers
+  match (nat1, nat2)
+    with (#zero, #zero) ::
+      #True
+    with (#succ(let x), #zero) ::
+      #False
+    with (#zero, #succ(let x)) ::
+      #False
+    with (#succ(let x), #succ(let y)) ::
+      eq(x, y)
+
+
+

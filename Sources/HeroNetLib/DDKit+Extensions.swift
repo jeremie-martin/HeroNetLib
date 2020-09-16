@@ -1,80 +1,89 @@
 import DDKit
+import Foundation
 
 extension MFDD {
-  public func removeSame(
-    _ val: Value,
-    _ hashTable: [Key: Int],
-    _ hashPlace: Int
-  ) -> Self {
+  public func removeSame(n: Int, k: Int) -> Self {
     Self(
-      pointer: factory.removeSame(pointer, val, hashTable, hashPlace),
+      pointer: factory.removeSame(pointer, n, k),
       factory: factory
     )
   }
 }
 
-extension MFDDFactory {
-  public struct TupleWrapper: Hashable {
-    // Public
+func quickBinomialCoefficient(_ n: Int, choose k: Int) -> Int {
+  var result = 1
+  for i in 0 ..< k {
+    result *= (n - i)
+    result /= (i + 1)
+  }
+  return result
+}
 
-    public static func == (lhs: TupleWrapper, rhs: TupleWrapper) -> Bool {
-      lhs.values == rhs.values
-    }
-
-    public func hash(into hasher: inout Hasher) {
-      hasher.combine(values.0)
-      hasher.combine(values.1)
-    }
-
-    // Internal
-
-    let values: (Key, Set<Value>)
+func nb(_ n: Int, choose k: Int) -> Int {
+  if k == 1 {
+    return n
   }
 
-  public func removeSame(
-    _ pointer: MFDD<Key, Value>.Pointer,
-    _ val: Value,
-    _: [Key: Int],
-    _: Int
-  ) -> MFDD<Key, Value>.Pointer {
-    var cache: [TupleWrapper: MFDD<Key, Value>.Pointer] = [:]
+  return quickBinomialCoefficient(n, choose: k) + nb(n, choose: k - 1)
+}
 
-    if pointer == zero.pointer || pointer == one.pointer {
+extension MFDDFactory {
+  public func removeSame(_ pointer: MFDD<Key, Value>.Pointer, _ n: Int, _ k: Int)
+    -> MFDD<Key, Value>.Pointer {
+    var cache = [Set<Value>: MFDD<Key, Value>.Pointer](
+      minimumCapacity: nb(n, choose: k - 1)
+    )
+    var valCache = Set<Value>(minimumCapacity: k)
+
+    if isTerminal(pointer) {
       return pointer
     }
 
     func removeSameAux(
       _ pointer: MFDD<Key, Value>.Pointer,
-      _ valCache: Set<Value>,
       _ toAdd: Value
     ) -> MFDD<Key, Value>.Pointer {
       if isTerminal(pointer) {
         return pointer
       }
 
-      var newC = valCache
-      newC.insert(toAdd)
-
-      let cacheKey = TupleWrapper(values: (pointer.pointee.key, newC))
-      if let res = cache[cacheKey] {
+      valCache.update(with: toAdd)
+      if let res = cache[valCache] {
+        valCache.remove(toAdd)
         return res
       }
 
       let results = node(
         key: pointer.pointee.key,
         take: Dictionary(
-          uniqueKeysWithValues: pointer.pointee.take.lazy
-            .filter { key, _ in key != val }
-            .map { key, ptr in (key, removeSameAux(ptr, newC, key)) }
+          uniqueKeysWithValues: pointer.pointee.take
+            .compactMap { key, ptr in
+              if valCache.contains(key) { return nil }
+              else {
+                return (key, removeSameAux(ptr, key))
+              }
+            }
         ),
         skip: zero.pointer
       )
 
-      cache[cacheKey] = results
+      cache[valCache] = results
+
+      valCache.remove(toAdd)
       return results
     }
 
-    return removeSameAux(pointer, [], val)
+    let res = node(
+      key: pointer.pointee.key,
+      take: Dictionary(
+        uniqueKeysWithValues: pointer.pointee.take.map { key, ptr in
+          (key, removeSameAux(ptr, key))
+        }
+      ),
+      skip: zero.pointer
+    )
+
+    return res
   }
 
   public func fusion(
