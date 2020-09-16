@@ -1,0 +1,123 @@
+\documentclass[10pt]{beamer}
+\usepackage{bm}
+
+\usetheme[progressbar=frametitle,sectionpage=progressbar]{metropolis}
+\usepackage{appendixnumberbeamer}
+
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+
+\usepackage{pdfpages}
+\usepackage{pgfplots}
+\usepgfplotslibrary{dateplot}
+
+\usepackage[utf8]{inputenc} % usually not needed (loaded by default)
+
+\usepackage{xspace}
+\newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
+
+\usepackage{media9}
+
+\title{Hero Net Interpreter}
+\subtitle{Final presentation}
+\date{\today}
+% \date{}
+\author{Martin Jérémie}
+\institute{University of Geneva}
+% \titlegraphic{\hfill\includegraphics[height=1.5cm]{logo.pdf}}
+
+\usepackage[labelformat=empty]{caption}
+
+\begin{document}
+
+\maketitle
+
+\section{Project structure}
+
+\begin{frame}[fragile]{From Predicate nets...}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.8\textwidth]{01petri.png}
+    \end{figure}
+    \begin{itemize}
+        \item How to model and execute \textbf{Hero nets}?
+        \item Started with a library for \textit{Predicate Nets}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{... to Hero nets}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.80\textwidth]{02heronet.png}
+    \end{figure}
+    \begin{itemize}
+        \item Token: set of values
+        \item Transition arc: multiset of Hero terms
+        \item Guard: set of pairs of Hero terms
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Alpine integration with Hero nets}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.80\textwidth]{03integration.png}
+    \end{figure}
+    \begin{itemize}
+        \item Token: set of values (\texttt{Values})
+        \item Inbound arc: set of variable identifiers (\texttt{String})
+        \item Outbound arc: set of Hero terms (\texttt{String})
+        \item Guard: set of pairs of Hero terms (\texttt{(String, String)})
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Alpine interpreter modifications}
+    \begin{itemize}
+        \setlength\itemsep{1.15em}
+        \item Input expression:\vspace{\topsep}\begin{itemize}
+            \setlength\itemsep{0.45em}
+            \item Ex: \texttt{"f(x, g(y)) or y"}
+            \item Type: \texttt{String}
+        \end{itemize}
+        \item Input binding:\vspace{\topsep}\begin{itemize}
+            \setlength\itemsep{0.45em}
+            \item Ex: \texttt{\{["f" -> and, "g" -> not, "x" -> true, "y" -> false]}
+            \item Type: \texttt{[String: Value]}
+        \end{itemize}
+        \item Output (\texttt{Value}): evaluation of the expression after substitutions\vspace{\topsep}\begin{itemize}
+            \setlength\itemsep{0.45em}
+            \item Ex: \texttt{true}
+            \item Type: \texttt{Value}
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Difficulties}
+    \begin{itemize}
+        \setlength\itemsep{1.15em}
+        \item Types a \texttt{Value} can take:\vspace{\topsep}\begin{itemize}
+            \setlength\itemsep{0.45em}
+            \item Built-in ones: \texttt{Bool}, \texttt{Int}, \texttt{Real}, \texttt{String}, \texttt{([Any]) -> Any}
+            \item Tuple: \texttt{Tuple, [value: Value]}
+            \item Func: \texttt{Func, EvaluationContext}
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\section{Improvements of my Alpine-related code}
+
+\begin{frame}[fragile]{Alpine}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.20\textwidth]{bug.jpg}
+    \end{figure}
+    \begin{itemize}
+        \setlength\itemsep{1.15em}
+        \item An \texttt{eval()} call used to corrupt the main module
+        \item I had problems with scopes and symbols
+        \item I ended up making every kind of \texttt{Node} equatable
+        \item I was still having issues
+        \item Gave up my hacky solution and solved most issues I noticed
+    \end{itemize}
+\end{frame}
+
+\end{document}
